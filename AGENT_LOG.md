@@ -4,7 +4,7 @@
 
 ## 记录格式
 
-每个关键节点记录时间戳、任务编号、状态、触发的 Superpowers 技能、关键 prompt/context、智能体产出、人工干预、证据和经验。后续实现任务完成后，还需补充 subagent 类型、两阶段评审结论和 commit hash。
+每个关键节点记录时间戳、任务编号、状态、触发的 Superpowers 技能、关键 prompt/context、智能体产出、人工干预、证据和经验。后续实现任务完成后，还需补充 subagent 类型、两阶段评审结论、测试结果和未提交 diff；提交与推送由负责人自行完成。
 
 ## 2026-08-11T20:21:03+08:00 - SPEC-01 - 完成并提交项目规约
 
@@ -51,3 +51,22 @@
 - **验证与证据**：fresh Codex 报告明确标注“不是 Claude Code、未实现、未运行测试”；实际文档 diff 逐项对应七个发现。不存在 Claude Code 实现 commit，文档不作此声明。
 - **补偿措施**：隔离 worktree、每 Task fresh subagent、严格 TDD、先 spec 合规后代码质量的两阶段评审、持续日志和 commit 证据。
 - **经验**：受限上下文审查仍能发现主智能体自审遗漏，尤其是环境 preflight、空框架行为和计划内部类型不一致；但只读同类型审查不能替代异构实现试运行的全部证据。
+
+## 2026-08-12T11:21:21+08:00 - PROCESS-02 - 调整开发交接与存储清理边界
+
+- **状态**：正式开发尚未产生源代码改动；执行边界已调整并写入 `PLAN.md`。
+- **Superpowers 技能**：`subagent-driven-development`、`using-git-worktrees`。
+- **关键 prompt/context**：负责人要求智能体修改后不得直接 `commit` 或 `push`，以保留自行调整空间；同时允许按需删除对开发无影响但浪费存储的残留内容。
+- **执行调整**：每个任务仍执行 fresh subagent、TDD 和两阶段评审，但以未提交 diff、测试结果和文件清单交接；计划中的提交命令只保留为负责人手动提交参考。后续默认在主工作区顺序开发，不自动创建分支/worktree。
+- **清理边界**：只清理可确认无用且可再生成的缓存、构建产物和空临时工作树；删除前核对绝对路径、仓库归属和 Git 状态，不删除源码、文档、用户改动或必要证据。
+- **已执行清理**：中断尚未产生改动的 Task 1 子智能体；确认 `.worktrees/harness-implementation` 干净后移除该工作树、同头临时分支和空 `.worktrees` 目录。主工作区原有 `.gitattributes`、`.gitignore`、`REFLECTION.md` 改动保持不变。
+- **Git 边界**：本节点未执行 `git commit` 或 `git push`；此前文档提交发生在本约束提出之前，不改写历史。
+
+## 2026-08-12T11:30:03+08:00 - PROCESS-03 - 对齐课程 GitHub、worktree 与 PR 要求
+
+- **状态**：Task 1 在产生源码改动前再次暂停；正式 Git 流程已改为四个 PR 波次。
+- **关键 prompt/context**：负责人补充课程 §4.7：公开 GitHub 仓库；完整 commit 历史与 PR 工作流；拒绝单次 commit；每个 worktree 对应一个 PR；提交前检查凭据；commit/PR 标注 subagent 与人工修改；每 Task 回填 commit hash。
+- **冲突解析**：智能体“不 commit、不 push”与课程要求并不冲突。智能体在 PR 对应 worktree 中完成一个 Task 的 TDD 与两阶段评审后交付未提交 diff；负责人自行修改、复验和提交，并把真实 hash 提供给主智能体回填。波次结束后仍由负责人 push 和创建 PR。
+- **PR 波次**：PR-01 Task 1-5；PR-02 Task 6-10；PR-03 Task 11-13；PR-04 Task 14-15。每个波次一个分支、一个 worktree、一个 PR；每个 Task 一个独立 commit。
+- **凭据门禁**：每次人工提交与每个 PR 前检查跟踪文件和 diff，不提交 `.env*`、真实 Key、Harness 状态数据库、私有报告、审计或备份。PR 描述必须列 Task/commit、subagent、人工修改、测试和凭据扫描证据。
+- **对前一节点的修正**：PROCESS-02 中“默认在主工作区顺序开发”的短暂安排被本节点覆盖；由于发现及时，没有任何源代码在主工作区生成，也没有因此产生 commit 或 push。

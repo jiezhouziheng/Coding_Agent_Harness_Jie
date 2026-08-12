@@ -1,6 +1,6 @@
 # Coding Agent Harness Jie 实施计划
 
-> **For agentic workers / 供执行智能体使用：** REQUIRED SUB-SKILL：逐任务实现时必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`。每个任务使用复选框跟踪；必须严格执行 TDD 红-绿-重构，并在两阶段评审后填写 commit hash。
+> **For agentic workers / 供执行智能体使用：** REQUIRED SUB-SKILL：逐任务实现时必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`。每个任务使用复选框跟踪；必须严格执行 TDD 红-绿-重构，并在两阶段评审后留下未提交 diff、测试结果和文件清单。未经负责人逐次明确授权，任何智能体不得执行 `git commit` 或 `git push`。
 
 **Goal / 目标：** 在 Python 3.13 上实现一个可安装、可离线确定性测试的 Coding Agent Harness，使所有 LLM 动作在副作用前经过中央治理，并通过 CLI 与静态只读报告完整演示决策、工具、记忆、治理、反馈和配置六个维度。
 
@@ -14,12 +14,15 @@
 
 1. 本计划保存在课程指定的根目录 `PLAN.md`，覆盖 Superpowers 默认的 `docs/superpowers/plans/` 路径。
 2. 受时间盒与资源约束，陌生智能体实现试运行调整为 fresh Codex 受限上下文只读审查；真实发现和修订记录见 `SPEC_PROCESS.md` 与 `AGENT_LOG.md`。
-3. 每个正式任务使用独立分支/worktree；一个 fresh subagent 只负责一个任务。
-4. 每个任务依次执行：失败测试 -> 确认红灯 -> 最小实现 -> 确认绿灯 -> spec 合规评审 -> 代码质量评审 -> 提交。
-5. 评审发现 Critical issue 时不得进入下一任务。人工修改必须在 `AGENT_LOG.md` 和 commit/PR 描述中如实记录。
-6. 未经负责人批准，不安装依赖、不执行计划任务、不创建 worktree、不推送远端。
+3. 正式任务按第 1.1 节的 PR 波次在独立分支/worktree 中执行；每个 worktree 只对应一个预定 PR，一个 fresh subagent 只负责一个 Task。主工作区只维护 `main` 和流程文档，不直接开发源代码。
+4. 每个任务依次执行：失败测试 -> 确认红灯 -> 最小实现 -> 确认绿灯 -> spec 合规评审 -> 代码质量评审 -> 未提交改动交接 -> 负责人自行修改并提交。负责人给出 commit hash 并回填本计划后，才进入同一 worktree 的下一 Task。
+5. 评审发现 Critical issue 时不得进入下一任务。人工修改必须在 `AGENT_LOG.md` 和未提交 diff 说明中如实记录。
+6. 未经负责人批准，不安装依赖、不执行计划任务、不创建 worktree、不推送远端；自动化开发过程不得执行 `git commit`，提交与推送始终由负责人完成。
 7. 所有测试默认离线运行，不读取真实 Keyring，不访问真实 LLM，不运行不可信第三方仓库代码。
-8. 每完成一个任务，将本文件对应状态改为“完成”，补充 commit hash，并实时追加 `AGENT_LOG.md`。
+8. 每完成一个任务，将本文件对应状态改为“完成”，补充测试命令、未提交 diff 证据和负责人生成的 commit hash，并实时追加 `AGENT_LOG.md`。
+9. 各 Task 末尾已有的 `git add` / `git commit` 代码块仅作为负责人未来手动分批提交时的建议范围和提交信息参考，执行智能体必须跳过；任何 `git push` 同样必须由负责人操作。
+10. 可定期删除已确认无用且可再生成的缓存、构建产物和已经完成职责的空临时工作树。活跃 PR 的 worktree 必须保留到 PR 合并，且只能在负责人批准后清理。删除前必须解析并核对绝对路径、确认目标位于仓库内且不含源码、文档、用户未提交改动或仍需保留的测试证据；删除后记录范围与结果。
+11. 每个 Task 的提交信息必须标注实现 subagent，正文必须如实列出人工修改；推荐格式为 `<type>: <summary> [agent: task-XX-worker]`，正文 `人工修改：<具体文件与内容，若确实没有则写“无”>`。每个 PR 描述列出包含的 Task/commit、subagent、人工修改、测试证据和凭据扫描结果。
 
 ## 1. 时间盒与优先级
 
@@ -32,6 +35,19 @@
 | 8 月 13 日下午 | Task 14-15：CI、打包、README、最终验证与 ZIP | 可选 ruff/mypy 项目扩展后置，但核心 pytest 不得后置 |
 
 P0 为交付阻塞项：Task 1-11、Task 13、Task 15。Task 8、9、12、14 也必须完成最低实现，但在时间不足时只做 SPEC 定义的最小表面，不增加额外功能。
+
+### 1.1 PR 与 worktree 波次
+
+为同时满足“每个 Task 有独立 commit hash”“拒绝单次 commit 提交全部代码”和“每个 worktree 对应一个 PR”，正式实现固定为四个波次。一个波次只使用一个分支和一个 worktree；波次内各 Task 顺序完成、逐 Task 由负责人提交；波次结束后由负责人 push 并创建对应 PR。前一 PR 合并且 `main` 更新后再开始下一波次，避免堆叠 PR 隐藏依赖。
+
+| PR 波次 | 建议分支 | Task | PR 目标 | 完成门禁 |
+|---|---|---|---|---|
+| PR-01 核心治理基础 | `feature/pr01-governance-core` | 1-5 | `main` | 5 个 Task commit、核心模型/安全/存储/治理测试通过、凭据扫描通过 |
+| PR-02 工具与主循环 | `feature/pr02-agent-loop` | 6-10 | `main` | 5 个 Task commit、文件/命令/反馈/记忆/LLM/Engine 测试通过 |
+| PR-03 控制面与演示 | `feature/pr03-control-demo` | 11-13 | `main` | 3 个 Task commit、恢复/CLI/报告/三幕治理演示通过 |
+| PR-04 交付工程 | `feature/pr04-delivery` | 14-15 | `main` | 2 个 Task commit、CI/构建/全量验证/交付检查通过 |
+
+每次 Task 交接后，负责人可以先修改代码，再执行该 Task 的绿灯命令和凭据差异扫描，最后手动提交。主智能体只在收到真实 hash 后更新跟踪表，不预填、不伪造。PR 描述采用同一证据结构，并明确未使用真实 Key、未提交 `.env`/本地数据库/私有报告或备份。
 
 ## 2. 依赖波次与并行关系
 
@@ -170,23 +186,23 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 
 ## 5. 任务跟踪表
 
-| Task | 内容 | 优先级 | 依赖 | 初始状态 | commit |
-|---|---|---|---|---|---|
-| 1 | 包、CLI 和测试骨架 | P0 | 无 | 未执行 | - |
-| 2 | 严格 Action、Observation、状态模型 | P0 | 1 | 未执行 | - |
-| 3 | 路径安全、脱敏与分层配置 | P0 | 2 | 未执行 | - |
-| 4 | SQLite 权威状态与追加式审计 | P0 | 2 | 未执行 | - |
-| 5 | Policy Gateway、审批、预算 | P0 | 3,4 | 未执行 | - |
-| 6 | 文件工具、变更日志与回滚 | P0 | 3,4 | 未执行 | - |
-| 7 | 白名单子进程与验证反馈 | P0 | 3,4 | 未执行 | - |
-| 8 | 受治理记忆与有界上下文 | P0 | 4 | 未执行 | - |
-| 9 | Keyring 凭据与 LLM 适配器 | P1 | 2 | 未执行 | - |
-| 10 | 自研 Agent 主循环 | P0 | 5-9 | 未执行 | - |
-| 11 | 持久恢复、漂移处理与 CLI | P0 | 10 | 未执行 | - |
-| 12 | 脱敏报告与静态只读 WebUI | P1 | 4 | 未执行 | - |
-| 13 | mock 集成测试与治理机制演示 | P0 | 11,12 | 未执行 | - |
-| 14 | CI、打包、Pages 与 README | P1 | 13 | 未执行 | - |
-| 15 | 全量验收、凭据扫描与交付 ZIP | P0 | 14 | 未执行 | - |
+| Task | 内容 | PR | 优先级 | 依赖 | 初始状态 | commit |
+|---|---|---|---|---|---|---|
+| 1 | 包、CLI 和测试骨架 | PR-01 | P0 | 无 | 未执行 | - |
+| 2 | 严格 Action、Observation、状态模型 | PR-01 | P0 | 1 | 未执行 | - |
+| 3 | 路径安全、脱敏与分层配置 | PR-01 | P0 | 2 | 未执行 | - |
+| 4 | SQLite 权威状态与追加式审计 | PR-01 | P0 | 2 | 未执行 | - |
+| 5 | Policy Gateway、审批、预算 | PR-01 | P0 | 3,4 | 未执行 | - |
+| 6 | 文件工具、变更日志与回滚 | PR-02 | P0 | 3,4 | 未执行 | - |
+| 7 | 白名单子进程与验证反馈 | PR-02 | P0 | 3,4 | 未执行 | - |
+| 8 | 受治理记忆与有界上下文 | PR-02 | P0 | 4 | 未执行 | - |
+| 9 | Keyring 凭据与 LLM 适配器 | PR-02 | P1 | 2 | 未执行 | - |
+| 10 | 自研 Agent 主循环 | PR-02 | P0 | 5-9 | 未执行 | - |
+| 11 | 持久恢复、漂移处理与 CLI | PR-03 | P0 | 10 | 未执行 | - |
+| 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 未执行 | - |
+| 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 未执行 | - |
+| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 未执行 | - |
+| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 未执行 | - |
 
 ## 6. 替代冷启动审查 - 已执行
 

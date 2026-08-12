@@ -1,1 +1,42 @@
+# IDE and OS metadata
 .idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build and package outputs
+build/
+dist/
+*.egg-info/
+
+# Harness-local private state
+.cah/
+*.db
+*.sqlite
+*.sqlite3
+audit/
+backups/
+reports/private/
+
+# Linked worktrees live outside the tracked source tree
+.worktrees/
