@@ -555,9 +555,11 @@ flowchart TD
 
 ## 15. 工作流门禁
 
-以下条件全部完成前，不得编写实现代码：
+正式实现的默认门禁如下：
 
 1. 用户审阅并批准本 SPEC。
 2. 使用 Superpowers `writing-plans` 生成包含失败测试和验证命令的 `PLAN.md`。
 3. 一个不同类型的新鲜智能体仅获得 `SPEC.md` 和 `PLAN.md`，尝试 1-2 个任务并暴露歧义。
 4. 冷启动发现写入 `SPEC_PROCESS.md`，所需 SPEC/PLAN 修订获得批准。
+
+2026-08-12，项目在时间盒与资源约束下调整第 3、4 项：使用一个不继承当前对话历史和 memory 的 fresh Codex 子智能体，只读审查 `SPEC.md` 与 `PLAN.md` 中 Task 1-2 的可执行性。该审查不是 Claude Code 实现试运行，也不声称与课程要求的异构智能体实验等价；其真实发现和修订记录在 `SPEC_PROCESS.md` 与 `AGENT_LOG.md`。相关阻塞已修订，第 1、2 项已完成，替代审查也已形成可核验证据，因此实现门禁打开。

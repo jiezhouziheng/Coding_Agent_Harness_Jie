@@ -13,7 +13,7 @@
 ## 0. 执行规则与范围门禁
 
 1. 本计划保存在课程指定的根目录 `PLAN.md`，覆盖 Superpowers 默认的 `docs/superpowers/plans/` 路径。
-2. 任何正式实现前，先用不同类型的新鲜智能体按“冷启动协议”尝试 Task 1 和 Task 2 中的 1-2 个任务；实验 worktree 不直接并入正式分支。
+2. 受时间盒与资源约束，陌生智能体实现试运行调整为 fresh Codex 受限上下文只读审查；真实发现和修订记录见 `SPEC_PROCESS.md` 与 `AGENT_LOG.md`。
 3. 每个正式任务使用独立分支/worktree；一个 fresh subagent 只负责一个任务。
 4. 每个任务依次执行：失败测试 -> 确认红灯 -> 最小实现 -> 确认绿灯 -> spec 合规评审 -> 代码质量评审 -> 提交。
 5. 评审发现 Critical issue 时不得进入下一任务。人工修改必须在 `AGENT_LOG.md` 和 commit/PR 描述中如实记录。
@@ -25,7 +25,7 @@
 
 | 时间 | 必须完成 | 降级原则 |
 |---|---|---|
-| 8 月 12 日上午 | PLAN 审阅、冷启动说明、准备陌生智能体实验 | 不开始正式实现 |
+| 8 月 12 日上午 | PLAN 审阅、替代冷读审查与 Task 1-5 | 不做真实 API/UI 美化 |
 | 8 月 12 日中午前 | Task 1-5：骨架、协议、安全、持久化、治理 | 不做真实 API/UI 美化 |
 | 8 月 12 日下午/晚 | Task 6-10：工具、反馈、记忆、LLM、主循环 | 先跑通 mock 闭环 |
 | 8 月 13 日上午 | Task 11-13：恢复/CLI、报告、机制演示 | 只读 WebUI 保持最小静态实现 |
@@ -140,8 +140,8 @@ Coding_Agent_Harness_Jie/
 
 ```python
 Action = ListFilesAction | ReadFileAction | ReplaceInFileAction | CreateFileAction | DeleteFileAction | RunCommandAction | ProposeMemoryAction | FinishAction
-Decision = Literal["ALLOW", "REQUIRE_APPROVAL", "DENY"]
-SessionStatus = Literal["CREATED", "RUNNING", "SUCCEEDED", "PAUSED_APPROVAL", "PAUSED_LIMIT_REACHED", "PAUSED_PROTOCOL_ERROR", "PAUSED_WORKSPACE_DRIFT", "PAUSED_INTERNAL_ERROR", "NEEDS_USER_DECISION", "CHANGES_KEPT", "ROLLED_BACK"]
+Decision = StrEnum("Decision", ["ALLOW", "REQUIRE_APPROVAL", "DENY"])
+SessionStatus = StrEnum("SessionStatus", ["CREATED", "RUNNING", "SUCCEEDED", "PAUSED_APPROVAL", "PAUSED_LIMIT_REACHED", "PAUSED_PROTOCOL_ERROR", "PAUSED_WORKSPACE_DRIFT", "PAUSED_INTERNAL_ERROR", "NEEDS_USER_DECISION", "CHANGES_KEPT", "ROLLED_BACK"])
 LLMClient.next_action(context: ModelContext) -> Action
 PolicyEngine.evaluate(action: Action, policy_context: PolicyContext) -> PolicyDecision
 Dispatcher.execute(grant: AuthorizationGrant) -> Observation
@@ -188,7 +188,7 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 14 | CI、打包、Pages 与 README | P1 | 13 | 未执行 | - |
 | 15 | 全量验收、凭据扫描与交付 ZIP | P0 | 14 | 未执行 | - |
 
-## 6. 陌生智能体冷启动协议
+## 6. 替代冷启动审查 - 已执行
 
 - 使用 Claude Code 新会话和一次性 worktree，不导入当前 Codex 对话、memory 或口头解释。
 - 只提供已批准的 `SPEC.md` 与本 `PLAN.md`。
@@ -197,22 +197,39 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 - 实验结束后不直接 merge；先区分 SPEC 缺陷、PLAN 缺陷、智能体阅读错误，再把修订前后 diff 写入 `SPEC_PROCESS.md`。
 - 所有修订由负责人批准后，才能打开正式实现门禁；冷启动实验不勾选正式任务状态。
 
+**实际执行：** 受时间盒与资源约束，未执行 Claude Code 的 1-2 小时实现试运行；改由不继承当前对话历史和 memory 的 fresh Codex 子智能体，对 `SPEC.md` 相关章节与本计划 Task 1-2 进行只读可执行性审查。审查未修改文件、未运行测试、未产生实现 commit，因此不与异构智能体实现实验混同。
+
+审查发现并已修订：Task 1 缺少明确的 README/preflight 说明；空 Typer 子应用不能可靠保证 help 表面；依赖未安装时红灯原因不纯；`StrictModel` 未启用 `strict=True`；Task 2 测试未覆盖全部 Action/Decision/ValidationResult；稳定接口表把枚举写成 `Literal`；`ReadFileAction` 缺少行范围跨字段校验。修订后才允许执行 Task 1。残余风险由每 Task fresh subagent、严格 TDD、spec 合规评审和代码质量评审继续控制。
+
 ---
 
 ### Task 1：建立可安装包、CLI 与测试骨架
 
 **目标：** 建立 Python 3.13 `src` 布局和可执行 `cah` 命令，不实现 Harness 行为。
 
-**依赖：** 无。冷启动首选任务。
+**依赖：** 无。替代冷读审查后的首个正式任务。
 
 **Files:**
 - Create: `pyproject.toml`
+- Existing: `README.md`（Task 1 只验证存在，不修改）
 - Create: `src/coding_agent_harness/__init__.py`
 - Create: `src/coding_agent_harness/cli.py`
 - Create: `tests/conftest.py`
 - Create: `tests/test_package.py`
 
-- [ ] **Step 1：写入失败的包导入和 CLI 测试**
+- [ ] **Step 1：验证环境前置条件，再写入失败的包导入和 CLI 测试**
+
+Run: `python --version`
+
+Expected: Python 3.13.x。
+
+Run: `python -c "import typer, pytest; print(typer.__version__, pytest.__version__)"`
+
+Expected: exit code 0。若依赖缺失，暂停并申请安装，不得把缺依赖误记为 TDD 红灯。
+
+Run: `Test-Path README.md`
+
+Expected: `True`；`pyproject.toml` 将引用现有 README。
 
 ```python
 # tests/test_package.py
@@ -337,6 +354,16 @@ for name, group in (
     app.add_typer(group, name=name)
 
 
+def _register_group_callback(group: typer.Typer) -> None:
+    @group.callback()
+    def callback() -> None:
+        """Command group placeholder; behavior is added by later tasks."""
+
+
+for group in (sessions, approvals, changes, credentials, memory, report, demo):
+    _register_group_callback(group)
+
+
 @app.command()
 def run() -> None:
     """Start a governed coding session."""
@@ -369,7 +396,7 @@ git commit -m "build: scaffold Python package [agent: task-01-worker]" -m "人�
 
 **目标：** 建立所有模块共享的冻结数据契约，未知工具、额外字段和非法状态全部 fail-closed。
 
-**依赖：** Task 1。冷启动第二候选任务。
+**依赖：** Task 1。替代冷读审查覆盖本任务。
 
 **Files:**
 - Create: `src/coding_agent_harness/models.py`
@@ -382,7 +409,12 @@ git commit -m "build: scaffold Python package [agent: task-01-worker]" -m "人�
 import pytest
 from pydantic import ValidationError
 
-from coding_agent_harness.models import ReplaceInFileAction, parse_action
+from coding_agent_harness.models import (
+    Decision,
+    ReplaceInFileAction,
+    ValidationResult,
+    parse_action,
+)
 
 
 def test_parse_exact_replace_action() -> None:
@@ -398,9 +430,25 @@ def test_parse_exact_replace_action() -> None:
     )
 
 
+@pytest.mark.parametrize(("payload", "tool"), [
+    ({"tool": "list_files", "path": ".", "glob": "**/*.py", "limit": 10}, "list_files"),
+    ({"tool": "read_file", "path": "src/app.py", "start_line": 1, "end_line": 20}, "read_file"),
+    ({"tool": "replace_in_file", "path": "src/app.py", "old_text": "a", "new_text": "b", "expected_matches": 1}, "replace_in_file"),
+    ({"tool": "create_file", "path": "src/new.py", "content": "x = 1\n"}, "create_file"),
+    ({"tool": "delete_file", "path": "src/old.py"}, "delete_file"),
+    ({"tool": "run_command", "program": "python", "args": ["-m", "pytest"], "cwd": ".", "timeout_seconds": 30}, "run_command"),
+    ({"tool": "propose_memory", "memory_type": "project_convention", "content": "Use UTC", "tags": ["time"]}, "propose_memory"),
+    ({"tool": "finish", "summary": "all validators pass"}, "finish"),
+])
+def test_parse_every_registered_action(payload: dict[str, object], tool: str) -> None:
+    assert parse_action(payload).tool == tool
+
+
 @pytest.mark.parametrize("payload", [
     {"tool": "unknown"},
     {"tool": "read_file", "path": "x.py", "surprise": True},
+    {"tool": "read_file", "path": "x.py", "start_line": 10, "end_line": 2},
+    {"tool": "list_files", "limit": "10"},
     {"tool": "replace_in_file", "path": "x.py", "old_text": "a", "new_text": "b", "expected_matches": 0},
 ])
 def test_invalid_actions_fail_closed(payload: dict[str, object]) -> None:
@@ -421,11 +469,11 @@ Expected: FAIL，导入 `coding_agent_harness.models` 失败。
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
 
 class ListFilesAction(StrictModel):
@@ -440,6 +488,12 @@ class ReadFileAction(StrictModel):
     path: str
     start_line: int = Field(default=1, ge=1)
     end_line: int = Field(default=200, ge=1)
+
+    @model_validator(mode="after")
+    def validate_line_range(self) -> "ReadFileAction":
+        if self.end_line < self.start_line:
+            raise ValueError("end_line_before_start_line")
+        return self
 
 
 class ReplaceInFileAction(StrictModel):
@@ -508,6 +562,18 @@ def test_success_requires_running_source_state() -> None:
 def test_observation_is_bounded() -> None:
     with pytest.raises(ValidationError):
         Observation(category="tool_error", summary="x" * 4_001)
+
+
+def test_decision_values_are_stable() -> None:
+    assert [item.value for item in Decision] == ["ALLOW", "REQUIRE_APPROVAL", "DENY"]
+
+
+def test_validation_result_rejects_wrong_types_and_unknown_status() -> None:
+    with pytest.raises(ValidationError):
+        ValidationResult(
+            validator_id="pytest", stage="final", status="unknown", exit_code="1",
+            duration_ms=-1, summary="failed",
+        )
 ```
 
 - [ ] **Step 5：实现枚举、结果模型和显式状态转换表**
@@ -3243,9 +3309,9 @@ git commit -m "docs: finalize verified course delivery [agent: task-15-worker]" 
 
 ## 10. 执行交接
 
-计划批准并完成陌生智能体冷启动修订后，有两种正式执行方式：
+计划获批且流程偏离被如实记录后，有两种正式执行方式：
 
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：PLAN 已形成，正式实现门禁仍关闭；下一步是负责人审阅本计划，然后由不同类型的新鲜智能体执行冷启动试运行。
+当前状态：PLAN 已由负责人审阅通过；fresh Codex 受限上下文替代审查已完成并触发 Task 1-2 修订；正式实现门禁已打开，选择 Subagent-Driven 方式从 Task 1 开始。

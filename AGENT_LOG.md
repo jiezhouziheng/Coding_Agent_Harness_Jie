@@ -40,3 +40,14 @@
 - **验证与证据**：`git diff --check` 通过；15/15 个 Task 合同完整；18/18 条验收标准有证据映射；6/6 个 Harness 维度有最低实现；10/10 个稳定接口存在；160 个代码围栏成对；无待填占位标记。
 - **自审修正**：补齐测试 fixture 的任务归属；修复暂停状态单写索引遗漏；明确 Policy Gateway 在规范化后唯一记录 Action；修正 `.env` 前导点路径处理；补齐 Dispatcher、CredentialService、预算计数、Observation 转换、CLI 退出码和渐进组合根。
 - **经验**：详细计划中的代码片段本身也必须满足依赖顺序。仅有任务标题和测试命令不足以支持冷启动，未定义 fixture、过早导入未来模块或重复持久化 Action 都会让新鲜智能体产生歧义。
+
+## 2026-08-12T10:49:05+08:00 - PROCESS-01 - fresh Codex 替代冷读审查与计划修订
+
+- **状态**：负责人已批准 `PLAN.md`；替代审查完成；发现的 Task 1-2 阻塞已修订；正式实现门禁打开。
+- **Superpowers 技能**：`using-git-worktrees`、`subagent-driven-development`、`test-driven-development`（开发流程准备）。
+- **关键 prompt/context**：在截止期时间盒与资源约束下，冷启动材料采用受限上下文的 fresh Codex 只读审查；只提供 SPEC 相关章节和 PLAN Task 1-2，不提供当前对话、memory 或口头解释。
+- **subagent 输出**：第一次广范围审查未及时收敛并被中断；第二个 `fork_turns="none"` 子智能体完成限范围报告，指出 README/preflight、空 Typer group、依赖红灯污染、Pydantic 严格性、测试覆盖、枚举接口和行范围校验问题。
+- **人工干预**：主智能体把审查范围从完整长文档压缩到 Task 1-2；未改变产品行为，只修订计划可执行性。
+- **验证与证据**：fresh Codex 报告明确标注“不是 Claude Code、未实现、未运行测试”；实际文档 diff 逐项对应七个发现。不存在 Claude Code 实现 commit，文档不作此声明。
+- **补偿措施**：隔离 worktree、每 Task fresh subagent、严格 TDD、先 spec 合规后代码质量的两阶段评审、持续日志和 commit 证据。
+- **经验**：受限上下文审查仍能发现主智能体自审遗漏，尤其是环境 preflight、空框架行为和计划内部类型不一致；但只读同类型审查不能替代异构实现试运行的全部证据。

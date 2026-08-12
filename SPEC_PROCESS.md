@@ -1,6 +1,6 @@
 # Coding Agent Harness Jie - 规约形成过程
 
-> 状态：持续更新；brainstorming 设计与实施计划已完成，冷启动验证尚未执行
+> 状态：持续更新；brainstorming 与实施计划已完成；fresh Codex 替代冷读审查已完成
 >
 > 负责人：Jie
 >
@@ -12,7 +12,7 @@
 
 本文件记录项目规约与计划如何形成、哪些建议来自 AI、哪些决定由项目负责人采纳、推翻或修正，以及什么证据导致设计发生变化。
 
-`SPEC.md` 是规范性的产品行为合同；本文件保存推理、对话和过程证据。它是一份持续更新的文档：brainstorming 部分已经完成，冷启动部分必须等不同类型智能体真实执行后再补充，不能提前虚构结果。
+`SPEC.md` 是规范性的产品行为合同；本文件保存推理、对话和过程证据。它是一份持续更新的文档：brainstorming 与计划部分已经完成；外部 Claude Code 实现试运行未执行，改用 fresh Codex 受限上下文只读审查，二者的证据强度差异在本文件中明确说明。
 
 ## 2. 初始背景与约束
 
@@ -235,7 +235,7 @@ Visual companion 展示三种完整架构：
 - AI 起初过度强调 WebUI，必须由负责人纠正。
 - 某些低风险技术细节可以在主要风险模型确定后合并决定，不必每项单独占一轮。
 - Visual companion 在 Windows 的启动和超时问题中断了节奏。
-- Brainstorming 只能提高设计清晰度，不能证明 PLAN 可实施，因此陌生智能体冷启动仍不可替代。
+- Brainstorming 只能提高设计清晰度，不能单独证明 PLAN 可实施；真正的异构智能体实现试运行仍比同类型只读审查提供更强证据。
 
 ### 批判性认识
 
@@ -246,7 +246,7 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 ## 10. 当前交付物状态
 
 - `SPEC.md`：已根据全部批准设计写入中文，并于 2026-08-11 通过负责人审阅。
-- `SPEC_PROCESS.md`：已记录 brainstorming 过程；冷启动后继续更新。
+- `SPEC_PROCESS.md`：已记录 brainstorming、计划与 fresh Codex 替代冷读审查；实现期间继续更新。
 - `PLAN.md`：已在 SPEC 获批后使用 `superpowers:writing-plans` 生成中文实施计划，等待负责人审阅。
 - `AGENT_LOG.md`：已初始化；从计划阶段开始实时追加，在每个任务后继续记录。
 - `REFLECTION.md`：文件已存在但保持为空。最终反思由学生根据真实证据完成；AI 只能提供提纲或明确披露的润色帮助。
@@ -258,9 +258,9 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 
 计划自审覆盖 18 条 SPEC 验收标准和六个 Harness 维度。自审过程中发现并修正了四类会影响冷启动的歧义：测试 fixture 没有任务归属、暂停状态没有全部纳入单写会话索引、`PolicyGateway` 未明确承担“规范化后再记录”的职责、CLI 示例只有签名而没有应用服务调用。还修正了 `lstrip("./")` 可能错误移除 `.env` 前导点的安全问题。当前检查结果为 15/15 个任务契约完整、18/18 条 AC 有映射、6/6 个维度有实现证据、无待填占位标记，代码围栏成对。
 
-## 11. 陌生智能体冷启动验证 - 尚未执行
+## 11. 替代冷启动审查
 
-尚未执行的原因是 `PLAN.md` 刚完成生成与主智能体自审，仍需负责人书面审阅。固定执行协议如下：
+原定执行协议如下：
 
 1. 使用与主 Codex App 不同类型的 Claude Code。
 2. 启动全新 session，不导入对话、任务 memory 或口头解释。
@@ -274,7 +274,31 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 10. 在本文件加入全部 `SPEC.md`/`PLAN.md` 修订前后 diff。
 11. 试验实现必须丢弃或重新独立评审，不能静默视为正式产物。
 
-在真实证据补充前，`SPEC.md` 的实现门禁保持关闭。
+### 实际审查方法
+
+项目在截止期时间盒与资源约束下没有启动外部 Claude Code 实现 session，改用一个 `fork_turns="none"` 的 fresh Codex 子智能体进行受限上下文审查。该智能体未继承当前对话和 memory，只被允许读取 `SPEC.md` 的相关章节与 `PLAN.md` 至 Task 2 结束；禁止修改文件、运行测试或继续阅读后续任务。
+
+第一次广范围审查没有在时间盒内收敛，被中断且不作为成功证据。第二次将范围严格限制为 Task 1-2 后完成只读报告。它不是 Claude Code，也没有实现 task、测试输出或实验 commit，不能声称完全满足课程 §4.5 的异构智能体实现试运行。
+
+### 审查发现与处理
+
+| 级别 | fresh Codex 发现 | 分类 | 修订前 | 修订后 |
+|---|---|---|---|---|
+| Critical | Task 1 的安装元数据依赖 README，但计划未显式确认文件存在 | PLAN 缺陷 | 直接生成 `pyproject.toml` 并安装 | 增加 README 存在性 preflight；README 已存在且 Task 1 不修改 |
+| Critical | 七个空 Typer 子应用不保证稳定出现在 help 中 | PLAN 缺陷 | 只创建并挂载空 group | 为每个 group 注册 callback，保持命令组可见 |
+| Important | 缺少依赖时，首个测试会因环境而不是缺实现失败 | PLAN 缺陷 | 直接运行红灯测试 | 先验证 Python、Typer、pytest；缺依赖时暂停申请安装 |
+| Important | 严格模型仍可能接受类型强制转换 | PLAN/SPEC 落地缺陷 | `ConfigDict(extra="forbid", frozen=True)` | 增加 `strict=True` 和错误类型测试 |
+| Important | Task 2 声称覆盖全部 Action/Decision/ValidationResult，但测试样例不足 | PLAN 缺陷 | 只测 replace 和少量非法输入 | 参数化覆盖 8 种 Action，并补 Decision、ValidationResult 测试 |
+| Important | 稳定接口用 `Literal`，实现改用 `StrEnum` | PLAN 内部矛盾 | 接口表与实现不一致 | 稳定接口表统一为 `StrEnum` |
+| Minor | `ReadFileAction` 未验证 `end_line >= start_line` | PLAN 缺陷 | 只有单字段下限 | 增加跨字段 validator 和失败测试 |
+
+审查结论为：原 Task 1-2 在修订前不适合无历史智能体直接执行；上述修订完成后，未再发现阻塞正式 Task 1 的文档问题。没有修改产品范围或安全边界，因此无需改变用户故事和 AC。
+
+### 残余风险与补偿
+
+替代审查证明了受限上下文下的静态可读性，但没有证明异构工具链中的实际实现行为。补偿措施为：正式实现使用隔离 worktree；每个 Task 使用 fresh subagent；严格执行测试先行的红-绿循环；每个 Task 先做 spec 合规评审，再做代码质量评审；所有真实问题、人工修改和 commit 继续写入 `AGENT_LOG.md`。
+
+相关阻塞已经修订，`SPEC.md` 实现门禁打开，产品行为合同和验收标准不变。
 
 ## 12. 工作流偏离与明确决定
 
@@ -283,3 +307,4 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 - GitHub Actions 是实际执行 CI；保留最小 `.gitlab-ci.yml` 作为课程字面要求文件。
 - Open Design 仅用于静态报告页，不属于运行时 Harness 机制。
 - Brainstorming 期间没有生成代码、项目骨架、安装依赖或编写实现计划。
+- 课程要求的异构智能体实现试运行在时间盒与资源约束下调整为 fresh Codex 受限上下文只读审查；文档明确两者不等价，并记录实际发现与修订。
