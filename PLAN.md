@@ -163,6 +163,7 @@ PolicyEngine.evaluate(action: Action, policy_context: PolicyContext) -> PolicyDe
 Dispatcher.execute(grant: AuthorizationGrant) -> Observation
 ValidationPipeline.run(stage: ValidationStage, workspace: Path) -> list[ValidationResult]
 HarnessEngine.run(session_id: str) -> SessionResult
+resolve_config(user: UserConfig, project: ProjectConfig | None = None, cli: BudgetConfig | None = None) -> ResolvedConfig
 ```
 
 任何签名变化必须先同步修改测试、本文稳定接口清单和 `AGENT_LOG.md`，不得在后续任务中悄悄改名。
@@ -175,7 +176,7 @@ HarnessEngine.run(session_id: str) -> SessionResult
 |---|---|---|
 | 1 | `app_data`、`workspace` | 两个不同的 pytest 临时目录，保证应用数据不位于目标仓库中 |
 | 4 | `store` | `StateStore(app_data / "state.db")`，测试前 `initialize()`，测试后 `close()` |
-| 5 | `pending_action`、`changed_action` | 同一 session/action ID；后者只改变 Action 参数以测试 fingerprint 失效 |
+| 5 | `audit_writer`、`pending_action`、`changed_action` | audit 写入 `app_data / "audit/events.jsonl"`；两个动作使用同一 session/action ID，后者只改变 Action 参数以测试 fingerprint 失效 |
 | 6 | `journal`、`tools` | `ChangeJournal(store, app_data / "backups")` 与 `FileTools(workspace, journal)`；workspace 预置 existing/delete 文件 |
 | 7 | `fake_runner`、`file_tools` spy、`dispatcher` | fake runner 使用 FIFO CommandResult；spy 只计数；dispatcher 注入真实 store 和假底层工具 |
 | 9 | `model_context`、`credential_backend` | 最小合法 `ModelContext` 与新的 `MemoryCredentialBackend`，每个测试独立 |
@@ -188,11 +189,11 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 
 | Task | 内容 | PR | 优先级 | 依赖 | 初始状态 | commit |
 |---|---|---|---|---|---|---|
-| 1 | 包、CLI 和测试骨架 | PR-01 | P0 | 无 | 未执行 | - |
-| 2 | 严格 Action、Observation、状态模型 | PR-01 | P0 | 1 | 未执行 | - |
-| 3 | 路径安全、脱敏与分层配置 | PR-01 | P0 | 2 | 未执行 | - |
-| 4 | SQLite 权威状态与追加式审计 | PR-01 | P0 | 2 | 未执行 | - |
-| 5 | Policy Gateway、审批、预算 | PR-01 | P0 | 3,4 | 未执行 | - |
+| 1 | 包、CLI 和测试骨架 | PR-01 | P0 | 无 | 完成 | `251c18af4e2f4a4615d912c4437f7ade419324e2` |
+| 2 | 严格 Action、Observation、状态模型 | PR-01 | P0 | 1 | 完成 | `011880d919f53c789555e85b9154f43e8e8bc1ae` |
+| 3 | 路径安全、脱敏与分层配置 | PR-01 | P0 | 2 | 完成 | `9ed7ae4ff1c89125e63bc2191d2efd18a0da0e00` |
+| 4 | SQLite 权威状态与追加式审计 | PR-01 | P0 | 2 | 完成 | `e48056366198d23c50727a52ba6cfa93af0b82f8` |
+| 5 | Policy Gateway、审批、预算 | PR-01 | P0 | 3,4 | 已完成 | `a273c8190c18a0b1dec74b811378e3c265cc0788` |
 | 6 | 文件工具、变更日志与回滚 | PR-02 | P0 | 3,4 | 未执行 | - |
 | 7 | 白名单子进程与验证反馈 | PR-02 | P0 | 3,4 | 未执行 | - |
 | 8 | 受治理记忆与有界上下文 | PR-02 | P0 | 4 | 未执行 | - |
@@ -233,7 +234,7 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 - Create: `tests/conftest.py`
 - Create: `tests/test_package.py`
 
-- [ ] **Step 1：验证环境前置条件，再写入失败的包导入和 CLI 测试**
+- [x] **Step 1：验证环境前置条件，再写入失败的包导入和 CLI 测试**
 
 Run: `python --version`
 
@@ -266,13 +267,13 @@ def test_cli_help_lists_primary_commands() -> None:
         assert command in result.stdout
 ```
 
-- [ ] **Step 2：运行测试并确认红灯**
+- [x] **Step 2：运行测试并确认红灯**
 
 Run: `python -m pytest tests/test_package.py -v`
 
 Expected: FAIL，错误包含 `ModuleNotFoundError: No module named 'coding_agent_harness'`。
 
-- [ ] **Step 3：写入最小包元数据**
+- [x] **Step 3：写入最小包元数据**
 
 ```toml
 # pyproject.toml
@@ -324,7 +325,7 @@ packages = ["coding_agent_harness"]
 
 在负责人批准依赖安装后运行：`python -m pip install -e ".[dev]"`。
 
-- [ ] **Step 4：实现版本和命令组占位表面**
+- [x] **Step 4：实现版本和命令组占位表面**
 
 ```python
 # src/coding_agent_harness/__init__.py
@@ -385,7 +386,7 @@ def run() -> None:
     """Start a governed coding session."""
 ```
 
-- [ ] **Step 5：运行单测和静态检查并确认绿灯**
+- [x] **Step 5：运行单测和静态检查并确认绿灯**
 
 Run: `python -m pytest tests/test_package.py -v`
 
@@ -395,7 +396,7 @@ Run: `python -m ruff check src tests/test_package.py`
 
 Expected: exit code 0。
 
-- [ ] **Step 6：两阶段评审并提交**
+- [x] **Step 6：两阶段评审并提交**
 
 Spec review: 只建立入口和依赖，没有实现或绕过治理。
 
@@ -406,6 +407,8 @@ git add pyproject.toml src/coding_agent_harness/__init__.py src/coding_agent_har
 git commit -m "build: scaffold Python package [agent: task-01-worker]" -m "人工修改：无"
 ```
 
+**完成证据（2026-08-12）：** 负责人确认无人工修改并提交 `251c18af4e2f4a4615d912c4437f7ade419324e2`。Task 1 最终测试为 `9 passed`，Ruff 与 strict mypy 通过，`python -m build --no-isolation` 成功生成 sdist 和 wheel；两阶段复核均通过，凭据扫描无命中。默认隔离构建因当前环境安装构建依赖失败且 `build` 解码本地化错误输出异常，未记为通过；详见 `AGENT_LOG.md`。
+
 ---
 
 ### Task 2：定义严格 Action、Observation 与会话状态
@@ -414,11 +417,13 @@ git commit -m "build: scaffold Python package [agent: task-01-worker]" -m "人�
 
 **依赖：** Task 1。替代冷读审查覆盖本任务。
 
+**实现前补充（2026-08-12）：** `strict=True` 会拒绝 JSON 解码后的数组直接进入 tuple 字段，因此 `RunCommandAction.args` 与 `ProposeMemoryAction.tags` 必须使用字段级 `mode="before"` 校验器，仅把输入 `list` 冻结为 `tuple`，随后仍由 strict 类型校验每个元素；字符串、数值元素和其他宽松转换继续拒绝。Action 阶段不得提前导入尚未实现的 Decision/状态模型，两个 TDD 循环必须分别取得绿灯。
+
 **Files:**
 - Create: `src/coding_agent_harness/models.py`
 - Create: `tests/test_models.py`
 
-- [ ] **Step 1：写入 Action 解析红灯测试**
+- [x] **Step 1：写入 Action 解析红灯测试**
 
 ```python
 # tests/test_models.py
@@ -426,9 +431,7 @@ import pytest
 from pydantic import ValidationError
 
 from coding_agent_harness.models import (
-    Decision,
     ReplaceInFileAction,
-    ValidationResult,
     parse_action,
 )
 
@@ -460,11 +463,33 @@ def test_parse_every_registered_action(payload: dict[str, object], tool: str) ->
     assert parse_action(payload).tool == tool
 
 
+def test_json_arrays_are_frozen_without_relaxing_element_types() -> None:
+    command = parse_action({
+        "tool": "run_command", "program": "python", "args": ["-m", "pytest"]
+    })
+    memory = parse_action({
+        "tool": "propose_memory", "memory_type": "project_convention",
+        "content": "Use UTC", "tags": ["time"],
+    })
+    assert command.args == ("-m", "pytest")
+    assert memory.tags == ("time",)
+
+
+def test_actions_are_frozen() -> None:
+    action = ReplaceInFileAction(
+        path="x.py", old_text="a", new_text="b", expected_matches=1
+    )
+    with pytest.raises(ValidationError):
+        action.path = "other.py"
+
+
 @pytest.mark.parametrize("payload", [
     {"tool": "unknown"},
     {"tool": "read_file", "path": "x.py", "surprise": True},
     {"tool": "read_file", "path": "x.py", "start_line": 10, "end_line": 2},
     {"tool": "list_files", "limit": "10"},
+    {"tool": "run_command", "program": "python", "args": [1]},
+    {"tool": "propose_memory", "memory_type": "project_convention", "content": "x", "tags": "time"},
     {"tool": "replace_in_file", "path": "x.py", "old_text": "a", "new_text": "b", "expected_matches": 0},
 ])
 def test_invalid_actions_fail_closed(payload: dict[str, object]) -> None:
@@ -472,20 +497,20 @@ def test_invalid_actions_fail_closed(payload: dict[str, object]) -> None:
         parse_action(payload)
 ```
 
-- [ ] **Step 2：运行测试并确认红灯**
+- [x] **Step 2：运行测试并确认红灯**
 
 Run: `python -m pytest tests/test_models.py -v`
 
 Expected: FAIL，导入 `coding_agent_harness.models` 失败。
 
-- [ ] **Step 3：实现严格联合类型与解析器**
+- [x] **Step 3：实现严格联合类型与解析器**
 
 ```python
 # src/coding_agent_harness/models.py
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -538,6 +563,11 @@ class RunCommandAction(StrictModel):
     cwd: str = "."
     timeout_seconds: int = Field(default=120, ge=1, le=300)
 
+    @field_validator("args", mode="before")
+    @classmethod
+    def freeze_json_args(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
+
 
 class ProposeMemoryAction(StrictModel):
     tool: Literal["propose_memory"] = "propose_memory"
@@ -545,6 +575,11 @@ class ProposeMemoryAction(StrictModel):
     content: str = Field(min_length=1, max_length=2_000)
     evidence_action_id: str | None = None
     tags: tuple[str, ...] = ()
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def freeze_json_tags(cls, value: object) -> object:
+        return tuple(value) if isinstance(value, list) else value
 
 
 class FinishAction(StrictModel):
@@ -564,10 +599,20 @@ def parse_action(payload: object) -> Action:
     return ACTION_ADAPTER.validate_python(payload)
 ```
 
-- [ ] **Step 4：补齐决策、状态、Observation 与 ValidationResult 红灯测试**
+Run: `python -m pytest tests/test_models.py -v`
+
+Expected: Action 解析、严格拒绝、冻结模型与 JSON 数组冻结测试全部 PASS；此时尚未导入下一步的 Decision/状态模型。
+
+- [x] **Step 4：补齐决策、状态、Observation 与 ValidationResult 红灯测试**
 
 ```python
-from coding_agent_harness.models import Observation, SessionStatus, validate_transition
+from coding_agent_harness.models import (
+    Decision,
+    Observation,
+    SessionStatus,
+    ValidationResult,
+    validate_transition,
+)
 
 
 def test_success_requires_running_source_state() -> None:
@@ -592,7 +637,7 @@ def test_validation_result_rejects_wrong_types_and_unknown_status() -> None:
         )
 ```
 
-- [ ] **Step 5：实现枚举、结果模型和显式状态转换表**
+- [x] **Step 5：实现枚举、结果模型和显式状态转换表**
 
 ```python
 class Decision(StrEnum):
@@ -652,7 +697,7 @@ def validate_transition(source: SessionStatus, target: SessionStatus) -> bool:
     return (source, target) in ALLOWED_TRANSITIONS
 ```
 
-- [ ] **Step 6：运行模型测试并提交**
+- [x] **Step 6：运行模型测试并提交**
 
 Run: `python -m pytest tests/test_models.py -v`
 
@@ -667,6 +712,8 @@ git add src/coding_agent_harness/models.py tests/test_models.py
 git commit -m "feat(core): add strict action and state models [agent: task-02-worker]" -m "人工修改：无"
 ```
 
+**完成证据（2026-08-12）：** 负责人确认无人工修改并提交 `011880d919f53c789555e85b9154f43e8e8bc1ae`。最终 `tests/test_models.py` 为 `31 passed`，与包骨架合并回归为 `40 passed`；Ruff、strict mypy、差异检查和敏感内容扫描通过。规格与质量两阶段复核均无遗留问题；详见 `AGENT_LOG.md`。
+
 ---
 
 ### Task 3：实现路径安全、脱敏与分层配置
@@ -675,13 +722,17 @@ git commit -m "feat(core): add strict action and state models [agent: task-02-wo
 
 **依赖：** Task 2。可与 Task 4 并行。
 
+**实现前补充（2026-08-12）：** 路径围栏必须在任意目录层级识别 `.env`、`.env.*`、`.git`、`.ssh`、私钥和证书文件，并拒绝绝对路径、`..`、Windows drive/UNC 形式以及符号链接逃逸。待创建目标的直接父目录可以尚不存在，但检查必须向上找到最近的已存在祖先并确认其仍位于工作区；不能因 `strict=True` 或 `resolve(strict=True)` 误拒绝安全的多级新建路径。脱敏应覆盖显式 secret、Bearer、API key 和工作区绝对路径，且不改变非敏感文本。
+
+配置合并的稳定签名为 `resolve_config(user: UserConfig, project: ProjectConfig | None = None, cli: BudgetConfig | None = None) -> ResolvedConfig`。`ResolvedConfig` 包含用户层的 provider/model/credential profile、项目层的 source roots/validators 和逐层收紧后的 budgets。项目或 CLI 预算只处理该层显式提供的字段；省略字段继承较高信任层，显式字段取两层最小值，任何越过硬上限的输入仍在模型校验阶段 fail-closed。TOML 解析产生的 list 只允许在 `args`、`stages`、`source_roots`、`validators` 等声明为 tuple 的边界字段冻结，字符串容器、错误元素和未知字段继续拒绝。项目验证器在本任务中只是严格数据，Task 5/7 仍必须通过内置命令策略，不能从配置获得 shell 或网络执行权。
+
 **Files:**
 - Create: `src/coding_agent_harness/security.py`
 - Create: `src/coding_agent_harness/config.py`
 - Create: `tests/test_security.py`
 - Create: `tests/test_config.py`
 
-- [ ] **Step 1：写路径围栏和敏感文件红灯测试**
+- [x] **Step 1：写路径围栏和敏感文件红灯测试**
 
 ```python
 # tests/test_security.py
@@ -714,13 +765,13 @@ def test_redaction_removes_key_and_absolute_workspace(tmp_path: Path) -> None:
     assert "<WORKSPACE>" in redacted
 ```
 
-- [ ] **Step 2：运行安全测试并确认红灯**
+- [x] **Step 2：运行安全测试并确认红灯**
 
 Run: `python -m pytest tests/test_security.py -v`
 
 Expected: FAIL，导入 `coding_agent_harness.security` 失败。
 
-- [ ] **Step 3：实现规范化路径、安全模式和递归脱敏**
+- [x] **Step 3：实现规范化路径、安全模式和递归脱敏**
 
 ```python
 # src/coding_agent_harness/security.py
@@ -804,7 +855,7 @@ def scrub_environment(environment: dict[str, str]) -> dict[str, str]:
     return {key: value for key, value in environment.items() if not any(word in key.upper() for word in blocked)}
 ```
 
-- [ ] **Step 4：写配置优先级和权限扩张红灯测试**
+- [x] **Step 4：写配置优先级和权限扩张红灯测试**
 
 ```python
 # tests/test_config.py
@@ -832,7 +883,7 @@ def test_project_config_rejects_unknown_and_permission_fields(tmp_path: Path) ->
         load_project_config(path)
 ```
 
-- [ ] **Step 5：实现严格配置模型和只收紧合并**
+- [x] **Step 5：实现严格配置模型和只收紧合并**
 
 ```python
 # src/coding_agent_harness/config.py
@@ -897,7 +948,7 @@ def load_project_config(path: Path) -> ProjectConfig:
 
 实现 `resolve_config(user, project, cli)` 时按 user -> project -> CLI 连续调用 `tighten_budgets`；项目验证器仍需在 Task 5/7 经过命令策略，不能通过配置注册 shell 或网络命令。
 
-- [ ] **Step 6：运行安全与配置测试并提交**
+- [x] **Step 6：运行安全与配置测试并提交**
 
 Run: `python -m pytest tests/test_security.py tests/test_config.py -v`
 
@@ -912,6 +963,8 @@ git add src/coding_agent_harness/security.py src/coding_agent_harness/config.py 
 git commit -m "feat(security): enforce paths redaction and config trust [agent: task-03-worker]" -m "人工修改：无"
 ```
 
+**完成证据（2026-08-12）：** 负责人确认无人工修改并提交 `9ed7ae4ff1c89125e63bc2191d2efd18a0da0e00`。Task 3 最终为 `45 passed, 3 skipped`，Task 1-3 累计回归为 `85 passed, 3 skipped`；三个 skip 均因当前 Windows 账户缺少符号链接创建特权。Ruff、strict mypy、差异检查与敏感值扫描通过，规格和质量两阶段评审无遗留问题。
+
 ---
 
 ### Task 4：实现 SQLite 权威状态与追加式审计
@@ -920,13 +973,21 @@ git commit -m "feat(security): enforce paths redaction and config trust [agent: 
 
 **依赖：** Task 2。可与 Task 3 并行。
 
+**实现前补充（2026-08-12）：** `StateStore` 公开 `transaction()` 上下文管理器；各写 API 在没有外层事务时自行使用 `BEGIN IMMEDIATE`，存在外层事务时加入该事务。Task 5 的 Policy Gateway 必须用同一个 `with store.transaction():` 包住 `record_action`、`record_policy_decision` 和 `enqueue_audit`，任一步失败都回滚三类记录；不能把三个独立方法调用误当作原子业务事务。`record_policy_decision` 的稳定签名采用显式关键字参数 `(action_id, *, decision: Decision, reason_code: str, rule_source: str)`，避免 Task 4 反向依赖尚未定义的 `PolicyDecision` 模型。`record_validation` 处理单条结果，并提供 `record_validations` 批量入口供 Engine 使用。
+
+`SessionRecord.status` 必须恢复为 `SessionStatus`，预算恢复为完整字典；默认预算取 `BudgetConfig` 的统一默认值，避免后续 `BudgetTracker.from_session` 缺字段。`upsert_project` 对规范化路径幂等；同一项目只允许一个非终态会话；非法转换、唯一约束、外键、数据库关闭和损坏 JSON 均以不含绝对路径或 SQL 的稳定 `StorageError` fail-closed。Task 4 只为 approvals、memory 和 changes 建表，具体生命周期写 API 由对应后续 Task 通过 TDD 增加。
+
+`AuditWriter` 必须先递归遍历 JSON-compatible dict/list/tuple 中的字符串并调用 `redact_text`，再执行 JSON 序列化；不得只对已转义的 JSON 原文做替换。测试必须 `json.loads` 后断言嵌套 secret 与 Windows 工作区路径已脱敏，避免“原始路径因反斜杠被转义所以字符串搜索未命中”的假阳性。父目录创建、序列化、打开、写入、flush 和 fsync 任一步失败均转为 `AuditError("audit_append_failed")`，且不把 payload 或绝对路径放进错误消息。`flush_audit` 按 sequence 追加并仅在该行成功后标记 `flushed_at`；失败行保持未刷新，重试从首个未刷新行继续。审计采用 at-least-once 恢复语义，导出行携带 outbox sequence 以便识别极端崩溃窗口中的重复。
+
+**实现后收紧（2026-08-12）：** 预算快照只允许 `BudgetConfig` 的 7 个配置字段和 `steps / llm_calls / consecutive_failures / fingerprints` 4 个运行字段；配置必须通过硬上限校验，运行计数必须是非负严格整数，读取损坏或不完整快照时 fail-closed。`flush_audit` 必须在业务事务提交后独立调用：入口若检测到已有外层事务立即拒绝，避免文件已追加而 SQLite 随后回滚形成孤儿审计行；多个进程通过逐条 `BEGIN IMMEDIATE` 串行领取 outbox。事务取消、初始化失败和文件描述符所有权转移失败都必须恢复内部状态并释放资源，且不通过异常链泄漏路径或 secret。
+
 **Files:**
 - Create: `src/coding_agent_harness/storage.py`
 - Create: `src/coding_agent_harness/audit.py`
 - Modify: `tests/conftest.py`
 - Create: `tests/test_storage.py`
 
-- [ ] **Step 1：写事务、重启恢复和非法转换红灯测试**
+- [x] **Step 1：写事务、重启恢复和非法转换红灯测试**
 
 ```python
 # tests/test_storage.py
@@ -961,13 +1022,13 @@ def test_illegal_transition_rolls_back(tmp_path: Path) -> None:
     assert store.get_session(session_id).status is SessionStatus.CREATED
 ```
 
-- [ ] **Step 2：运行存储测试并确认红灯**
+- [x] **Step 2：运行存储测试并确认红灯**
 
 Run: `python -m pytest tests/test_storage.py -v`
 
 Expected: FAIL，导入 `coding_agent_harness.storage` 失败。
 
-- [ ] **Step 3：建立数据库 schema 和事务 API**
+- [x] **Step 3：建立数据库 schema 和事务 API**
 
 `StateStore.initialize()` 必须在一个事务中建立下列表；所有 ID 使用 `uuid.uuid4().hex`，时间使用带 UTC 时区的 ISO 8601：
 
@@ -1025,7 +1086,7 @@ CREATE TABLE IF NOT EXISTS audit_outbox (
 
 `StateStore` 使用 `sqlite3.connect(self.path, isolation_level=None)`、`PRAGMA foreign_keys=ON`、`PRAGMA journal_mode=WAL`；写操作用 `BEGIN IMMEDIATE` context manager，失败必须 rollback。实现 `upsert_project`、`create/get/transition_session`、`record_action`、`record_policy_decision`、`record_observation`、`record_validation` 和后续模块需要的查询接口。
 
-- [ ] **Step 4：写审计追加、脱敏和失败关闭红灯测试**
+- [x] **Step 4：写审计追加、脱敏和失败关闭红灯测试**
 
 ```python
 from coding_agent_harness.audit import AuditWriter
@@ -1041,7 +1102,7 @@ def test_audit_writer_appends_redacted_jsonl(tmp_path: Path) -> None:
     assert '"event":"policy"' in line
 ```
 
-- [ ] **Step 5：实现 fsync 的只追加 AuditWriter 和 outbox 刷新**
+- [x] **Step 5：实现 fsync 的只追加 AuditWriter 和 outbox 刷新**
 
 ```python
 # src/coding_agent_harness/audit.py
@@ -1079,7 +1140,7 @@ class AuditWriter:
 
 `StateStore.enqueue_audit(event)` 与业务记录放在同一 SQLite 事务；`flush_audit(writer)` 按 sequence 写 JSONL，成功后设置 `flushed_at`。策略 outbox 未成功 flush 时 Dispatcher 不得执行副作用。
 
-- [ ] **Step 6：运行重启、事务和审计测试并提交**
+- [x] **Step 6：运行重启、事务和审计测试并提交**
 
 Run: `python -m pytest tests/test_storage.py -v`
 
@@ -1094,6 +1155,8 @@ git add src/coding_agent_harness/storage.py src/coding_agent_harness/audit.py te
 git commit -m "feat(storage): persist state and append audit events [agent: task-04-worker]" -m "人工修改：无"
 ```
 
+**完成证据（2026-08-12）：** 负责人确认无人工修改并提交 `e48056366198d23c50727a52ba6cfa93af0b82f8`。`tests/test_storage.py` 为 `62 passed`，Task 1-4 累计回归为 `147 passed, 3 skipped`，三个 skip 均因当前 Windows 账户缺少符号链接创建特权。Ruff、strict mypy 和 `git diff --check` 通过；规格与质量两阶段评审均为 `APPROVED`，凭据模式扫描无命中。
+
 ---
 
 ### Task 5：实现 Policy Gateway、持久化审批与预算
@@ -1102,14 +1165,27 @@ git commit -m "feat(storage): persist state and append audit events [agent: task
 
 **依赖：** Task 3、Task 4。
 
+**实现前补充（2026-08-12）：** 本补充覆盖下方示例中不再成立的调用顺序。`PolicyGateway.authorize` 必须先规范化并作确定性判定，再用同一个 `with store.transaction():` 写入 Action、PolicyDecision、audit outbox；若为 `REQUIRE_APPROVAL`，还必须在该事务内通过 `ApprovalService.request` 建立已持久化的 `PENDING` Approval。事务提交后才可独立调用 `flush_audit`，成功后才能返回 `AuthorizationGrant` 或包含真实 `approval_id` 的 `PolicyResolution`。任何数据库或审计失败统一为稳定 `PolicyGatewayError`，不得返回 grant；Task 10 不得再次创建审批，只负责把已有审批的会话转为 `PAUSED_APPROVAL`。`DENY` 判定永远不能创建 Approval。
+
+`ApprovalStatus` 固定为 `PROPOSED / PENDING / APPROVED / CONSUMED / DENIED / EXPIRED / INVALIDATED`；允许边为 `PROPOSED -> PENDING`、`PENDING -> APPROVED|DENIED|EXPIRED|INVALIDATED`、`APPROVED -> CONSUMED|EXPIRED|INVALIDATED`。Approval 使用随机 256-bit ID 作为用户持有的 nonce，并只额外持久化其 SHA-256 摘要；记录同时保存 action fingerprint 与独立的 workspace fingerprint。请求、批准、拒绝、过期、失效和消费都必须事务化写状态与 audit outbox；服务在推进生命周期前先刷新更早的 pending audit，转换提交后再刷新本次事件。只有 `CONSUMED` 和对应审计均持久化后才返回带 `approval_id` 的 grant；审计失败不允许执行副作用。动作/session/nonce/fingerprint 不符、目标内容或存在性漂移、过期、拒绝和重放均 fail-closed。工作区指纹对文件动作绑定规范化目标的内容或不存在状态；`git add` 和本地离线安装绑定明确的工作区输入；`git commit` 绑定保守的可见工作区快照。不得为了读取 worktree 的真实 index 越界访问主仓库 `.git` 内部，也不得以动作指纹冒充环境状态。
+
+命令策略只接受逻辑程序与参数数组的精确前缀；先拒绝 shell wrapper、控制字符、管道/重定向/命令替换、远程 Git 和网络工具。`python -m pip install` 只有同时带 `--no-index`、目标是工作区内已存在的本地路径且没有 URL/VCS/index 选项时才进入审批。项目层命令集合只能取内置集合的子集，新增未知前缀在构造策略上下文时 fail-closed。依赖清单、锁文件、构建/CI 配置和 `.github/workflows/**` 都按受保护路径处理。
+
+`BudgetTracker` 必须从 Task 4 的完整预算快照恢复全部 7 个 `BudgetConfig` 字段和 4 个运行字段，构造时再次执行严格硬上限校验；提供步骤、LLM 调用、连续验证失败、重复动作和会话时长的确定性停机原因。传给 `save_budget_tracker` 的快照必须与 Task 4 的严格 schema 完全一致，不能通过直接构造 tracker 绕过编译期硬上限。
+
+**实现后补充（2026-08-13）：** 治理实现已将自主验证命令收紧为逐工具显式安全参数解析，未知选项、会写文件或联网的选项（例如 pytest 的 `--basetemp`、`--debug`、`--log-file`，Ruff 的修复/输出选项，mypy 的报告输出选项）均拒绝；所有 `@response-file` 参数统一拒绝，避免策略判定后再展开隐藏参数。`compileall` 因会产生 `__pycache__` 只能进入审批。目录型 `delete_file` 直接拒绝，仅普通文件可申请审批；目录指纹仍用于其他受审批工作区变更。审批请求公开 helper 必须处于外层事务，否则 fail-closed 且无副作用；旧 schema 中缺少 workspace fingerprint 的活跃审批迁移为 `INVALIDATED`。
+
 **Files:**
+- Modify: `src/coding_agent_harness/models.py`
+- Modify: `src/coding_agent_harness/security.py`
+- Modify: `src/coding_agent_harness/storage.py`
 - Create: `src/coding_agent_harness/policy.py`
 - Create: `src/coding_agent_harness/approvals.py`
 - Modify: `tests/conftest.py`
 - Create: `tests/test_policy.py`
 - Create: `tests/test_approvals.py`
 
-- [ ] **Step 1：写完整风险矩阵红灯测试**
+- [x] **Step 1：写完整风险矩阵红灯测试**
 
 ```python
 # tests/test_policy.py
@@ -1140,13 +1216,13 @@ def test_builtin_risk_matrix(tmp_path: Path, payload: dict[str, object], expecte
     assert decision.decision is expected
 ```
 
-- [ ] **Step 2：运行策略测试并确认红灯**
+- [x] **Step 2：运行策略测试并确认红灯**
 
 Run: `python -m pytest tests/test_policy.py -v`
 
 Expected: FAIL，导入 `coding_agent_harness.policy` 失败。
 
-- [ ] **Step 3：实现原因码、命令白名单、受保护路径和授权票据**
+- [x] **Step 3：实现原因码、命令白名单、受保护路径和授权票据**
 
 ```python
 # src/coding_agent_harness/policy.py
@@ -1242,6 +1318,7 @@ class PolicyResolution(StrictModel):
     reason_code: str
     grant: AuthorizationGrant | None = None
     pending_action: PendingAction | None = None
+    approval_id: str | None = None
     approval_ttl_seconds: int = 900
 
 
@@ -1279,9 +1356,9 @@ class PolicyGateway:
         return PolicyResolution(action_id=action_id, action=normalized, fingerprint=fingerprint, decision=decision.decision, reason_code=decision.reason_code, pending_action=pending)
 ```
 
-若 `record_policy_decision`、`enqueue_audit` 或 `flush_audit` 任一失败，Gateway 抛出受控内部错误；Engine 将会话暂停，Dispatcher 调用次数必须保持 0。
+若 `record_policy_decision`、`enqueue_audit`、Approval 持久化或 `flush_audit` 任一失败，Gateway 抛出受控内部错误；Engine 将会话暂停，Dispatcher 调用次数必须保持 0。下方旧示例把三个写 API 分开调用并在 Gateway 外重复 `request`，实现时必须以上述补充合同为准。
 
-- [ ] **Step 4：写审批过期、替换、重放与预算红灯测试**
+- [x] **Step 4：写审批过期、替换、重放与预算红灯测试**
 
 ```python
 # tests/test_approvals.py
@@ -1317,7 +1394,7 @@ def test_budget_pauses_on_first_reached_limit() -> None:
     assert tracker.stop_reason() == "max_steps"
 ```
 
-- [ ] **Step 5：实现审批状态机、原子消费和预算计数器**
+- [x] **Step 5：实现审批状态机、原子消费和预算计数器**
 
 ```python
 # src/coding_agent_harness/approvals.py
@@ -1403,9 +1480,9 @@ class BudgetTracker:
         return None
 ```
 
-`consume_approval_atomically` 必须同时检查：状态 `APPROVED`、session/action/fingerprint 完全匹配、未过期、工作区指纹未漂移；成功时在同一事务写 `CONSUMED` 和 `consumed_at`。任何失败均不返回 grant，并记录脱敏原因。
+`consume_approval_atomically` 必须同时检查：状态 `APPROVED`、session/action/nonce/action fingerprint 完全匹配、未过期、workspace fingerprint 未漂移；成功时在同一事务写 `CONSUMED`、`consumed_at` 与审计 outbox。任何失败均不返回 grant，并记录脱敏原因。`ApprovalService.request/consume` 的实际接口必须显式接收 `workspace: Path`；下方旧示例省略 workspace 的调用以本段补充为准。
 
-- [ ] **Step 6：运行完整治理测试并提交**
+- [x] **Step 6：运行完整治理测试，交由负责人提交**
 
 Run: `python -m pytest tests/test_policy.py tests/test_approvals.py -v`
 
@@ -1417,8 +1494,16 @@ Expected: exit code 0。
 
 ```powershell
 git add src/coding_agent_harness/policy.py src/coding_agent_harness/approvals.py tests/conftest.py tests/test_policy.py tests/test_approvals.py
-git commit -m "feat(governance): enforce policy approvals and budgets [agent: task-05-worker]" -m "人工修改：无"
+git commit -m "feat(governance): enforce policy approvals and budgets [agent: task05_impl+codex-main]" -m "人工修改：无"
 ```
+
+**Task 5 实施证据（2026-08-13）：**
+
+- TDD 首轮先得到 `tests/test_policy.py` 收集期 `ModuleNotFoundError: coding_agent_harness.policy`，实现后风险矩阵为 `51 passed`；审批测试先得到 `ModuleNotFoundError: coding_agent_harness.approvals`，实现后为 `19 passed`。
+- 规格审查发现并修复 pip 紧凑/未知参数、项目命令子集门禁、目录内容漂移、预算快照、危险验证参数和不安全 glob 等边界；复审结论为 `APPROVED`。
+- 质量审查通过取消信号、PRAGMA/描述符资源释放、审计异常链、outbox 并发、目录删除、审批事务误用、旧审批迁移和响应文件参数等回归；最终复审结论为 `APPROVED`。
+- 最终全量验证：`278 passed, 3 skipped`；跳过项均因当前 Windows 账户没有创建符号链接的权限（`WinError 1314`）。Ruff、strict mypy 和 `git diff --check` 均通过；敏感凭据模式扫描无命中。
+- Task 5 源码与测试已由控制器提交为 `a273c81`；本次提交前负责人已审阅并批准。文档本身将在后续独立提交中回填该 hash。
 
 ---
 
@@ -2442,9 +2527,8 @@ class HarnessEngine:
                 self.store.record_observation(session_id, Observation(action_id=action_id, category="policy_blocked", summary=resolution.reason_code))
                 continue
             if resolution.decision is Decision.REQUIRE_APPROVAL:
-                if resolution.pending_action is None:
+                if resolution.pending_action is None or resolution.approval_id is None:
                     return self._pause(session_id, SessionStatus.PAUSED_INTERNAL_ERROR, "missing_pending_action")
-                self.approvals.request(resolution.pending_action, expires_in=timedelta(seconds=resolution.approval_ttl_seconds))
                 return self._pause(session_id, SessionStatus.PAUSED_APPROVAL, resolution.reason_code)
             if isinstance(action, FinishAction):
                 final = self.validators.run(ValidationStage.FINAL, self.workspace)
