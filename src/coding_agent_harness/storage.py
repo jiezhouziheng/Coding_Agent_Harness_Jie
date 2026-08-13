@@ -671,6 +671,22 @@ class StateStore:
         except Exception as error:
             raise StorageError("corrupt_observation") from error
 
+    def query_context_inputs(self, session_id: str, *, memory_limit: int = 5) -> dict[str, object]:
+        """Return bounded, redaction-ready inputs for the model context."""
+        session = self.get_session(session_id)
+        latest = self.latest_observation(session_id)
+        validations = self.list_validations(session_id)
+        memories = self.search_active_memory(session.project_id, (), min(memory_limit, 5))
+        return {
+            "task": session.task,
+            "completion_criteria": "all required validators pass",
+            "policy_summary": "actions are evaluated by the governed policy gateway",
+            "validator_summary": validations[-1].summary if validations else "",
+            "current_failure": latest.summary if latest and latest.category != "success" else "",
+            "observations": (latest.summary,) if latest is not None else (),
+            "memories": tuple(memory.content for memory in memories),
+        }
+
     def record_validation(self, session_id: str, result: ValidationResult) -> str:
         return self.record_validations(session_id, [result])[0]
 

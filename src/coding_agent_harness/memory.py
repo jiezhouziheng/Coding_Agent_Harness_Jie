@@ -41,4 +41,8 @@ class MemoryService:
         return self.store.search_active_memory(project_id, keywords, min(limit, 5))
 
     def propose_from_action(self, session_id: str, action: Any) -> MemoryRecord:
-        return self.propose("default", session_id, action.memory_type, action.content, action.evidence_action_id, action.tags)
+        try:
+            project_id = self.store.get_session(session_id).project_id
+        except StorageError as error:
+            raise MemoryError("memory_session_not_found") from error
+        return self.propose(project_id, session_id, action.memory_type, action.content, action.evidence_action_id, action.tags)

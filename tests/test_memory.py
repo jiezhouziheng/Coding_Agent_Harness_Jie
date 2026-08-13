@@ -56,3 +56,18 @@ def test_approve_reject_delete_lifecycle(store, session_id: str, workspace) -> N
     entry2 = service.propose(project_id, session_id, "project_convention", "Use UTC", None, ())
     assert service.reject(entry2.id).status == "REJECTED"
     assert service.delete(entry.id).status == "DELETED"
+
+
+def test_action_memory_uses_session_project_and_context_query_is_bounded(store, session_id: str, workspace) -> None:
+    project_id = store.upsert_project(workspace, "memory")
+    service = MemoryService(store)
+    from coding_agent_harness.models import ProposeMemoryAction
+
+    entry = service.propose_from_action(
+        session_id,
+        ProposeMemoryAction(memory_type="project_convention", content="Use UTC"),
+    )
+    assert entry.project_id == project_id
+    inputs = store.query_context_inputs(session_id)
+    assert inputs["task"] == "file tools"
+    assert inputs["memories"] == ()

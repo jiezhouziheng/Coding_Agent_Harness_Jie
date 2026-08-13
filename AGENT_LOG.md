@@ -1,5 +1,16 @@
 # Coding Agent Harness Jie - Agent 协作日志
 
+## 2026-08-14T02:00:00+08:00 - TASK-10 - Governed agent loop and completion gate
+
+- **状态**：实现完成，等待负责人提交；PR-02 worktree 为 `feature/pr02-agent-loop`。
+- **实现 subagent**：`task10_impl` 生成测试与实现后因流断开未交付最终报告；控制器 `codex-main` 完成集成审查、修复和验证；无用户人工代码修改。
+- **TDD 证据**：Task 10 测试先于 `engine.py` 实现创建；首次导入缺少主循环模块为真实 RED；最小闭环实现后 `tests/test_engine.py` 为 `6 passed`。
+- **实现范围**：基线/快速/最终验证；ContextBuilder -> LLM -> PolicyGateway -> Dispatcher 闭环；DENY 不触发 Dispatcher；审批请求持久化后暂停；最终验证成功门禁唯一允许 `SUCCEEDED`；失败转 `NEEDS_USER_DECISION`；协议错误、LLM/策略/上下文/工具异常和预算上限均有结构化暂停状态；验证失败进入下一次有界上下文。
+- **规格审查**：补充真实 `StateStore.query_context_inputs`，上下文只读取任务、摘要、最近观察和最多 5 条 ACTIVE 记忆；`propose_memory` 按 session 的真实 project 归属，拒绝写死项目 ID。
+- **质量审查**：分离上下文构建异常与 LLM 协议异常；错误证据先脱敏；复核状态转移、完成门禁和 Dispatcher fail-closed 边界；Ruff 与 strict mypy 通过。
+- **验证证据**：Task 10 测试 `6 passed`；Task 10 + memory/context 集成回归 `13 passed`；PR-02 全量回归 `331 passed, 3 skipped`，3 个 skip 均为 Windows WinError 1314 符号链接权限。
+- **待提交 diff**：`src/coding_agent_harness/engine.py`、`src/coding_agent_harness/storage.py`、`src/coding_agent_harness/memory.py`、`tests/test_engine.py`、`tests/test_memory.py`。
+
 ## 2026-08-14T01:30:00+08:00 - TASK-09 - Keyring credentials and injectable LLM adapters
 
 - **状态**：实现完成，等待负责人提交；PR-02 worktree 为 `feature/pr02-agent-loop`。
