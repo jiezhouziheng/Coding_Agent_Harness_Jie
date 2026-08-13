@@ -15,9 +15,11 @@ from typing import Any
 from coding_agent_harness.config import BudgetConfig
 from coding_agent_harness.models import (
     Action,
+    ApprovalStatus,
     Decision,
     Observation,
     SessionStatus,
+    StrictModel,
     ValidationResult,
     parse_action,
     validate_transition,
@@ -66,6 +68,20 @@ class StoredPolicyDecision:
     created_at: str
 
 
+class ApprovalRecord(StrictModel):
+    id: str
+    action_id: str
+    session_id: str
+    fingerprint: str
+    workspace_fingerprint: str
+    nonce_digest: str
+    status: ApprovalStatus
+    created_at: str
+    expires_at: str
+    decided_at: str | None
+    consumed_at: str | None
+
+
 @dataclass(frozen=True)
 class AuditOutboxRecord:
     sequence: int
@@ -109,6 +125,7 @@ class StateStore:
             with self.transaction():
                 for statement in _SCHEMA:
                     connection.execute(statement)
+                self._migrate_approvals(connection)
         except StorageError:
             self._discard_connection()
             raise
@@ -131,6 +148,31 @@ class StateStore:
             self.close()
         except StorageError:
             pass
+
+    @staticmethod
+    def _migrate_approvals(connection: sqlite3.Connection) -> None:
+        columns = {
+            str(row[1]) for row in connection.execute("PRAGMA table_info(approvals)").fetchall()
+        }
+        if "workspace_fingerprint" not in columns:
+            connection.execute(
+                "ALTER TABLE approvals ADD COLUMN workspace_fingerprint "
+                "TEXT NOT NULL DEFAULT ''"
+            )
+            connection.execute(
+                "UPDATE approvals SET status = ?, decided_at = COALESCE(decided_at, created_at) "
+                "WHERE workspace_fingerprint = '' AND status IN (?, ?, ?)",
+                (
+                    ApprovalStatus.INVALIDATED.value,
+                    ApprovalStatus.PROPOSED.value,
+                    ApprovalStatus.PENDING.value,
+                    ApprovalStatus.APPROVED.value,
+                ),
+            )
+
+    @property
+    def in_transaction(self) -> bool:
+        return self._transaction_depth > 0
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
@@ -312,6 +354,177 @@ class StateStore:
         except ValueError as error:
             raise StorageError("corrupt_policy_decision") from error
 
+    def get_policy_decision_for_action(self, action_id: str) -> StoredPolicyDecision:
+        row = self._execute(
+            "SELECT id FROM policy_decisions WHERE action_id = ?", (action_id,)
+        ).fetchone()
+        if row is None:
+            raise StorageError("policy_decision_not_found")
+        return self.get_policy_decision(str(row["id"]))
+
+    def create_approval(
+        self,
+        *,
+        approval_id: str,
+        action_id: str,
+        session_id: str,
+        fingerprint: str,
+        workspace_fingerprint: str,
+        nonce_digest: str,
+        expires_at: str,
+    ) -> ApprovalRecord:
+        if not all(
+            (
+                approval_id,
+                action_id,
+                session_id,
+                fingerprint,
+                workspace_fingerprint,
+                nonce_digest,
+                expires_at,
+            )
+        ):
+            raise StorageError("invalid_approval")
+        with self._write_transaction():
+            action = self.get_action(action_id)
+            if action.session_id != session_id or action.fingerprint != fingerprint:
+                raise StorageError("approval_binding_mismatch")
+            if self._execute(
+                "SELECT 1 FROM approvals WHERE action_id = ?", (action_id,)
+            ).fetchone() is not None:
+                raise StorageError("approval_exists")
+            self._execute(
+                "INSERT INTO approvals("
+                "id, action_id, session_id, fingerprint, workspace_fingerprint, "
+                "nonce_digest, status, created_at, expires_at, decided_at, consumed_at"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)",
+                (
+                    approval_id,
+                    action_id,
+                    session_id,
+                    fingerprint,
+                    workspace_fingerprint,
+                    nonce_digest,
+                    ApprovalStatus.PROPOSED.value,
+                    self._now(),
+                    expires_at,
+                ),
+            )
+            return self.get_approval(approval_id)
+
+    def get_approval(self, approval_id: str) -> ApprovalRecord:
+        row = self._execute("SELECT * FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+        if row is None:
+            raise StorageError("approval_not_found")
+        try:
+            return ApprovalRecord(
+                id=str(row["id"]),
+                action_id=str(row["action_id"]),
+                session_id=str(row["session_id"]),
+                fingerprint=str(row["fingerprint"]),
+                workspace_fingerprint=str(row["workspace_fingerprint"]),
+                nonce_digest=str(row["nonce_digest"]),
+                status=ApprovalStatus(row["status"]),
+                created_at=str(row["created_at"]),
+                expires_at=str(row["expires_at"]),
+                decided_at=None if row["decided_at"] is None else str(row["decided_at"]),
+                consumed_at=None if row["consumed_at"] is None else str(row["consumed_at"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise StorageError("corrupt_approval") from error
+
+    def get_approval_for_action(self, action_id: str) -> ApprovalRecord:
+        row = self._execute(
+            "SELECT id FROM approvals WHERE action_id = ?", (action_id,)
+        ).fetchone()
+        if row is None:
+            raise StorageError("approval_not_found")
+        return self.get_approval(str(row["id"]))
+
+    def list_pending_approvals(
+        self, session_id: str | None = None
+    ) -> tuple[ApprovalRecord, ...]:
+        if session_id is None:
+            rows = self._execute(
+                "SELECT id FROM approvals WHERE status = ? ORDER BY rowid",
+                (ApprovalStatus.PENDING.value,),
+            ).fetchall()
+        else:
+            rows = self._execute(
+                "SELECT id FROM approvals WHERE status = ? AND session_id = ? ORDER BY rowid",
+                (ApprovalStatus.PENDING.value, session_id),
+            ).fetchall()
+        return tuple(self.get_approval(str(row["id"])) for row in rows)
+
+    def transition_approval(
+        self,
+        approval_id: str,
+        *,
+        target: ApprovalStatus,
+    ) -> ApprovalRecord:
+        if not isinstance(target, ApprovalStatus):
+            raise StorageError("illegal_approval_transition")
+        with self._write_transaction():
+            current = self.get_approval(approval_id)
+            if (current.status, target) not in _APPROVAL_TRANSITIONS:
+                raise StorageError("illegal_approval_transition")
+            decided_at = current.decided_at
+            consumed_at = current.consumed_at
+            now = self._now()
+            if target in {
+                ApprovalStatus.APPROVED,
+                ApprovalStatus.DENIED,
+                ApprovalStatus.EXPIRED,
+                ApprovalStatus.INVALIDATED,
+            }:
+                decided_at = now
+            if target is ApprovalStatus.CONSUMED:
+                consumed_at = now
+            cursor = self._execute(
+                "UPDATE approvals SET status = ?, decided_at = ?, consumed_at = ? "
+                "WHERE id = ? AND status = ?",
+                (target.value, decided_at, consumed_at, approval_id, current.status.value),
+            )
+            if cursor.rowcount != 1:
+                raise StorageError("approval_transition_conflict")
+            return self.get_approval(approval_id)
+
+    def is_consumed_approval(
+        self,
+        approval_id: str | None,
+        fingerprint: str,
+        *,
+        action_id: str | None = None,
+        session_id: str | None = None,
+        policy_decision_id: str | None = None,
+    ) -> bool:
+        if approval_id is None:
+            return False
+        row = self._execute(
+            """SELECT 1
+               FROM approvals AS approval
+               JOIN actions AS action ON action.id = approval.action_id
+               JOIN policy_decisions AS policy ON policy.action_id = action.id
+               WHERE approval.id = ? AND approval.fingerprint = ? AND approval.status = ?
+                 AND policy.decision = ?
+                 AND (? IS NULL OR approval.action_id = ?)
+                 AND (? IS NULL OR action.session_id = ?)
+                 AND (? IS NULL OR policy.id = ?)""",
+            (
+                approval_id,
+                fingerprint,
+                ApprovalStatus.CONSUMED.value,
+                Decision.REQUIRE_APPROVAL.value,
+                action_id,
+                action_id,
+                session_id,
+                session_id,
+                policy_decision_id,
+                policy_decision_id,
+            ),
+        ).fetchone()
+        return row is not None
+
     def record_observation(self, session_id: str, observation: Observation) -> str:
         if not isinstance(observation, Observation):
             raise StorageError("invalid_observation")
@@ -469,6 +682,17 @@ def _mapping(value: object) -> dict[str, object]:
         return dict(value)
     if isinstance(value, BudgetConfig):
         return value.model_dump(mode="json")
+    try:
+        snapshotter = getattr(value, "to_snapshot", None)
+        if callable(snapshotter):
+            snapshot = snapshotter()
+            if not isinstance(snapshot, Mapping):
+                raise StorageError("invalid_budget")
+            return dict(snapshot)
+    except StorageError:
+        raise
+    except Exception as error:
+        raise StorageError("invalid_budget") from error
     if is_dataclass(value) and not isinstance(value, type):
         return dict(asdict(value))
     raise StorageError("invalid_budget")
@@ -476,6 +700,20 @@ def _mapping(value: object) -> dict[str, object]:
 
 _RUNTIME_BUDGET_FIELDS = frozenset(
     {"steps", "llm_calls", "consecutive_failures", "fingerprints"}
+)
+
+
+_APPROVAL_TRANSITIONS = frozenset(
+    {
+        (ApprovalStatus.PROPOSED, ApprovalStatus.PENDING),
+        (ApprovalStatus.PENDING, ApprovalStatus.APPROVED),
+        (ApprovalStatus.PENDING, ApprovalStatus.DENIED),
+        (ApprovalStatus.PENDING, ApprovalStatus.EXPIRED),
+        (ApprovalStatus.PENDING, ApprovalStatus.INVALIDATED),
+        (ApprovalStatus.APPROVED, ApprovalStatus.CONSUMED),
+        (ApprovalStatus.APPROVED, ApprovalStatus.EXPIRED),
+        (ApprovalStatus.APPROVED, ApprovalStatus.INVALIDATED),
+    }
 )
 
 
@@ -517,7 +755,7 @@ _SCHEMA = (
     "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), task TEXT NOT NULL CHECK(length(task) > 0), status TEXT NOT NULL, budget_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS actions (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), step INTEGER NOT NULL CHECK(step >= 1), tool TEXT NOT NULL, normalized_json TEXT NOT NULL, fingerprint TEXT NOT NULL CHECK(length(fingerprint) > 0), created_at TEXT NOT NULL, UNIQUE(session_id, step))",
     "CREATE TABLE IF NOT EXISTS policy_decisions (id TEXT PRIMARY KEY, action_id TEXT NOT NULL UNIQUE REFERENCES actions(id), decision TEXT NOT NULL, reason_code TEXT NOT NULL CHECK(length(reason_code) > 0), rule_source TEXT NOT NULL CHECK(length(rule_source) > 0), created_at TEXT NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS approvals (id TEXT PRIMARY KEY, action_id TEXT NOT NULL UNIQUE REFERENCES actions(id), session_id TEXT NOT NULL REFERENCES sessions(id), fingerprint TEXT NOT NULL, nonce_digest TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, decided_at TEXT, consumed_at TEXT)",
+    "CREATE TABLE IF NOT EXISTS approvals (id TEXT PRIMARY KEY, action_id TEXT NOT NULL UNIQUE REFERENCES actions(id), session_id TEXT NOT NULL REFERENCES sessions(id), fingerprint TEXT NOT NULL, workspace_fingerprint TEXT NOT NULL, nonce_digest TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, decided_at TEXT, consumed_at TEXT)",
     "CREATE TABLE IF NOT EXISTS observations (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), action_id TEXT REFERENCES actions(id), category TEXT NOT NULL, summary TEXT NOT NULL, evidence TEXT NOT NULL, created_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS validations (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), validator_id TEXT NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL, exit_code INTEGER, duration_ms INTEGER NOT NULL, summary TEXT NOT NULL, evidence TEXT NOT NULL, created_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS memory_entries (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), source_session_id TEXT NOT NULL REFERENCES sessions(id), memory_type TEXT NOT NULL, content TEXT NOT NULL, evidence_action_id TEXT REFERENCES actions(id), tags_json TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",

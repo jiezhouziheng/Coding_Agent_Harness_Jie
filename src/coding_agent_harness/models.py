@@ -119,6 +119,16 @@ class Decision(StrEnum):
     DENY = "DENY"
 
 
+class ApprovalStatus(StrEnum):
+    PROPOSED = "PROPOSED"
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    CONSUMED = "CONSUMED"
+    DENIED = "DENIED"
+    EXPIRED = "EXPIRED"
+    INVALIDATED = "INVALIDATED"
+
+
 class SessionStatus(StrEnum):
     CREATED = "CREATED"
     RUNNING = "RUNNING"

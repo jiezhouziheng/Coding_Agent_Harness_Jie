@@ -5,6 +5,14 @@ import pytest
 from coding_agent_harness.storage import StateStore
 
 
+class MemoryAuditWriter:
+    def __init__(self) -> None:
+        self.events: list[dict[str, object]] = []
+
+    def append(self, event: dict[str, object]) -> None:
+        self.events.append(event)
+
+
 @pytest.fixture
 def app_data(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp("cah-app-data")
@@ -23,3 +31,8 @@ def store(app_data: Path) -> StateStore:
     value.initialize()
     yield value
     value.close()
+
+
+@pytest.fixture
+def audit_writer() -> MemoryAuditWriter:
+    return MemoryAuditWriter()
