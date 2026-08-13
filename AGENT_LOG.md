@@ -180,3 +180,11 @@
 - **最终验证**：提交后重新运行全量 pytest 得到 `278 passed, 3 skipped`；3 个 skip 均为 Windows `WinError 1314` 符号链接权限。远端分支和 PR head 均已核对。
 - **Git 整理**：清理前确认 Task 5 worktree 的陈旧 `index.lock` 已约 24 小时且无 Git/SSH/GH 进程占用，只删除该精确锁文件。主仓库已暂存的空 `REFLECTION.md` 属于负责人现有改动，保持原状且未进入 PR-01。
 - **人工干预**：负责人审阅 Task 5 后确认无问题，并明确授权智能体执行本次 add、commit、push 和 PR 创建；没有人工代码修改。
+
+## 2026-08-13T21:30:00+08:00 - PR-01-CLOSEOUT - PR-01 已合并
+
+- **状态**：GitHub PR #1 已合并到 `main`，merge commit 为 `cad0122cb140b4fd83d2ca031ee9bc86a99f3ae0`；远端 `main` 与本地 `main` 已同步。
+- **范围**：PR-01 包含 Task 1-5 的连续提交，Task 5 源码提交为 `a273c8190c18a0b1dec74b811378e3c265cc0788`，过程文档提交为 `b4d8f6209620bc4ffbcc0f0976cc01f38ed3e03a`，PR-01 交付记录为 `2c0d85c077ff459350003b4f5ab160b2f20a051a`。
+- **合并后验证**：在合并后的 `main` 上重新运行全量 pytest，结果为 `278 passed, 3 skipped`；3 个 skip 均由 Windows `WinError 1314` 符号链接权限造成。
+- **工作树边界**：主仓库当前仅保留负责人原先已暂存的空 `REFLECTION.md`；PR-01 分支和 worktree 暂不删除，等待负责人决定是否清理。
+- **下一波次**：后续开发进入 PR-02，分支建议为 `feature/pr02-agent-loop`，范围为 Task 6-10。
