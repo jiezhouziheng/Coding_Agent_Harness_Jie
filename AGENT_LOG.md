@@ -1,5 +1,16 @@
 # Coding Agent Harness Jie - Agent 协作日志
 
+## 2026-08-14T01:30:00+08:00 - TASK-09 - Keyring credentials and injectable LLM adapters
+
+- **状态**：实现完成，等待负责人提交；PR-02 worktree 为 `feature/pr02-agent-loop`。
+- **实现 subagent**：`task09_impl` 未在时间盒内交付；控制器 `codex-main` 接管实现、测试和两阶段审查；无用户人工代码修改。
+- **TDD 证据**：新增测试首次运行得到 `ModuleNotFoundError: coding_agent_harness.credentials` 与 `ModuleNotFoundError: coding_agent_harness.llm`；最小实现后基础测试 `4 passed`；规格回归补充后 Task 9 测试 `7 passed`。
+- **实现范围**：Keyring/内存凭据后端、凭据状态与缺失/空值 fail-closed；Action tool schemas；上下文可观测的 ScriptedMockLLM；OpenAI-compatible native tool-call 客户端；HTTP timeout/连接/5xx 最多重试 2 次，永久 4xx 不重试，LLM 异常文本脱敏。
+- **规格审查**：确认离线测试不读取真实 Keyring、不访问真实 LLM，API secret 仅进入 Authorization header，不进入 status 或错误文本；`tool` 常量字段从模型 schema 移除。
+- **质量审查**：补充空凭据、缺失凭据、timeout/503 retry、401 no-retry 和 secret non-leak 回归；Ruff 与 strict mypy 均通过。
+- **验证证据**：`pytest tests/test_credentials.py tests/test_llm.py` 为 `7 passed`；`ruff check` 通过；`mypy --strict` 通过。
+- **待提交 diff**：`src/coding_agent_harness/credentials.py`、`src/coding_agent_harness/llm.py`、`tests/test_credentials.py`、`tests/test_llm.py`。
+
 > 记录原则：只记录可由对话、文件、测试或 Git 历史核验的事实；不补写不存在的执行结果。
 
 ## 记录格式
