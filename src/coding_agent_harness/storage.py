@@ -103,6 +103,20 @@ class ChangeRecord:
     created_at: str
 
 
+@dataclass(frozen=True)
+class MemoryRecord:
+    id: str
+    project_id: str
+    source_session_id: str
+    memory_type: str
+    content: str
+    evidence_action_id: str | None
+    tags: tuple[str, ...]
+    status: str
+    created_at: str
+    updated_at: str
+
+
 _ACTIVE_STATUSES = tuple(
     status.value
     for status in (
@@ -386,6 +400,46 @@ class StateStore:
             if cursor.rowcount != 1:
                 raise StorageError("change_not_found")
             return self.get_change(change_id)
+
+    def create_memory(self, project_id: str, session_id: str, memory_type: str, content: str, evidence_action_id: str | None, tags: tuple[str, ...], status: str) -> MemoryRecord:
+        if not project_id or not session_id or not memory_type or not content or status not in {"CANDIDATE", "ACTIVE"}:
+            raise StorageError("invalid_memory")
+        with self._write_transaction():
+            self._require_session(session_id)
+            record_id = _new_id()
+            now = self._now()
+            self._execute("INSERT INTO memory_entries(id, project_id, source_session_id, memory_type, content, evidence_action_id, tags_json, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (record_id, project_id, session_id, memory_type, content, evidence_action_id, _dump(list(tags)), status, now, now))
+            return self.get_memory(record_id)
+
+    def get_memory(self, memory_id: str) -> MemoryRecord:
+        row = self._execute("SELECT * FROM memory_entries WHERE id = ?", (memory_id,)).fetchone()
+        if row is None:
+            raise StorageError("memory_not_found")
+        tags = json.loads(str(row["tags_json"]))
+        if not isinstance(tags, list) or any(not isinstance(item, str) for item in tags):
+            raise StorageError("corrupt_memory")
+        return MemoryRecord(str(row["id"]), str(row["project_id"]), str(row["source_session_id"]), str(row["memory_type"]), str(row["content"]), None if row["evidence_action_id"] is None else str(row["evidence_action_id"]), tuple(tags), str(row["status"]), str(row["created_at"]), str(row["updated_at"]))
+
+    def transition_memory(self, memory_id: str, allowed: set[str], target: str) -> MemoryRecord:
+        with self._write_transaction():
+            current = self.get_memory(memory_id)
+            if current.status not in allowed:
+                raise StorageError("illegal_memory_transition")
+            self._execute("UPDATE memory_entries SET status = ?, updated_at = ? WHERE id = ?", (target, self._now(), memory_id))
+            return self.get_memory(memory_id)
+
+    def search_active_memory(self, project_id: str, keywords: tuple[str, ...], limit: int) -> tuple[MemoryRecord, ...]:
+        rows = self._execute("SELECT id FROM memory_entries WHERE project_id = ? AND status = 'ACTIVE' ORDER BY rowid DESC", (project_id,)).fetchall()
+        values = tuple(self.get_memory(str(row["id"])) for row in rows)
+        if not keywords:
+            return values[: min(limit, 5)]
+        terms = tuple(term.casefold() for term in keywords)
+        matching = tuple(item for item in values if any(term in (item.content + " " + " ".join(item.tags)).casefold() for term in terms))
+        return matching[: min(limit, 5)]
+
+    def action_has_successful_validation(self, session_id: str, action_id: str) -> bool:
+        row = self._execute("SELECT 1 FROM validations WHERE session_id = ? AND status = 'passed' AND (id = ? OR validator_id = ?)", (session_id, action_id, action_id)).fetchone()
+        return row is not None
 
     def get_action(self, action_id: str) -> StoredAction:
         row = self._execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()

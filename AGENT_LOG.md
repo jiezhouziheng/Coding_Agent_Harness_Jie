@@ -209,3 +209,13 @@
 - **规格/质量审查**：复核 Policy Gateway 与 Dispatcher 边界、DENY/审批 fail-closed、验证完成门禁、跨平台终止和异常边界；修复未排序导入、可变类属性、`check=False` 缺失、宽泛异常捕获和 strict mypy 类型问题。无 Critical/Important 遗留。
 - **验证证据**：Task 7 `18 passed`；Ruff 通过；strict mypy 通过；Task 6+7 回归将在提交前执行；敏感输出测试仅使用 fake secret 与本地 Mock 行为。
 - **未提交 diff**：`src/coding_agent_harness/command_runner.py`、`src/coding_agent_harness/validation.py`、`src/coding_agent_harness/dispatcher.py`、`tests/conftest.py`、`tests/test_command_runner.py`、`tests/test_validation.py`、`tests/test_dispatcher.py`。
+
+## 2026-08-14T01:00:00+08:00 - TASK-08 - 受治理记忆与有界上下文
+
+- **状态**：实现完成，等待负责人提交；Task 8 commit 尚未创建。
+- **实现 subagent**：`task08_impl` 未在时间盒内写入测试；控制器接管测试、最小实现和审查回归。无用户人工代码修改。
+- **TDD 证据**：新增 memory/context 测试首次收集因生产模块不存在真实 RED（2 个 `ModuleNotFoundError`）；最小实现后基础测试为 `6 passed`。审查新增搜索过滤回归先得到失败（匹配项位于最初 limit 之外），修复过滤后限额后 Task 8 测试为 `8 passed`。
+- **实现范围**：新增 `memory.py`、`context.py`；扩展 `storage.py` 的 MemoryRecord、候选/激活生命周期、项目/会话绑定、验证证据查询和有界搜索；上下文模型包含任务、完成标准、策略、工具、验证摘要、当前失败、源码片段、Observation 和最多 5 条记忆，并按字节预算先脱敏再裁剪。
+- **规格/质量审查**：确认四类记忆白名单、候选不可检索、用户批准/验证证据激活、拒绝/删除、项目范围和最多五条检索；修复搜索先过滤后限额及 strict 类型问题。无 Critical/Important 遗留。
+- **验证证据**：Task 8 `8 passed`；Ruff 通过；strict mypy 通过；Task 6-8 全量回归将在提交前执行；无真实 Keyring/LLM/网络访问。
+- **未提交 diff**：`src/coding_agent_harness/memory.py`、`src/coding_agent_harness/context.py`、`src/coding_agent_harness/storage.py`、`tests/test_memory.py`、`tests/test_context.py`。
