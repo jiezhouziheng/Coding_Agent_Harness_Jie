@@ -90,6 +90,19 @@ class AuditOutboxRecord:
     flushed_at: str | None
 
 
+@dataclass(frozen=True)
+class ChangeRecord:
+    id: str
+    session_id: str
+    relative_path: str
+    operation: str
+    before_digest: str | None
+    after_digest: str | None
+    backup_ref: str | None
+    sequence: int
+    created_at: str
+
+
 _ACTIVE_STATUSES = tuple(
     status.value
     for status in (
@@ -320,6 +333,59 @@ class StateStore:
                 (action_id, session_id, step, normalized.tool, _dump(normalized.model_dump(mode="json")), fingerprint, self._now()),
             )
             return action_id
+
+    def create_change(
+        self,
+        *,
+        session_id: str,
+        relative_path: str,
+        operation: str,
+        before_digest: str | None,
+        backup_ref: str | None,
+        after_digest: str | None = None,
+    ) -> ChangeRecord:
+        if not session_id or not relative_path or operation not in {"create", "modify", "delete"}:
+            raise StorageError("invalid_change")
+        with self._write_transaction():
+            self._require_session(session_id)
+            row = self._execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM changes WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            sequence = int(row["next_sequence"])
+            change_id = _new_id()
+            self._execute(
+                "INSERT INTO changes(id, session_id, relative_path, operation, before_digest, after_digest, backup_ref, sequence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (change_id, session_id, relative_path, operation, before_digest, after_digest, backup_ref, sequence, self._now()),
+            )
+            return self.get_change(change_id)
+
+    def get_change(self, change_id: str) -> ChangeRecord:
+        row = self._execute("SELECT * FROM changes WHERE id = ?", (change_id,)).fetchone()
+        if row is None:
+            raise StorageError("change_not_found")
+        return ChangeRecord(
+            id=str(row["id"]), session_id=str(row["session_id"]),
+            relative_path=str(row["relative_path"]), operation=str(row["operation"]),
+            before_digest=None if row["before_digest"] is None else str(row["before_digest"]),
+            after_digest=None if row["after_digest"] is None else str(row["after_digest"]),
+            backup_ref=None if row["backup_ref"] is None else str(row["backup_ref"]),
+            sequence=int(row["sequence"]), created_at=str(row["created_at"]),
+        )
+
+    def list_changes(self, session_id: str) -> tuple[ChangeRecord, ...]:
+        self._require_session(session_id)
+        rows = self._execute("SELECT id FROM changes WHERE session_id = ? ORDER BY sequence", (session_id,)).fetchall()
+        return tuple(self.get_change(str(row["id"])) for row in rows)
+
+    def finish_change(self, change_id: str, *, after_digest: str) -> ChangeRecord:
+        if not after_digest:
+            raise StorageError("invalid_change")
+        with self._write_transaction():
+            cursor = self._execute("UPDATE changes SET after_digest = ? WHERE id = ?", (after_digest, change_id))
+            if cursor.rowcount != 1:
+                raise StorageError("change_not_found")
+            return self.get_change(change_id)
 
     def get_action(self, action_id: str) -> StoredAction:
         row = self._execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()

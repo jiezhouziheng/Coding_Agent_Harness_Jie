@@ -188,3 +188,14 @@
 - **合并后验证**：在合并后的 `main` 上重新运行全量 pytest，结果为 `278 passed, 3 skipped`；3 个 skip 均由 Windows `WinError 1314` 符号链接权限造成。
 - **工作树边界**：主仓库当前仅保留负责人原先已暂存的空 `REFLECTION.md`；PR-01 分支和 worktree 暂不删除，等待负责人决定是否清理。
 - **下一波次**：后续开发进入 PR-02，分支建议为 `feature/pr02-agent-loop`，范围为 Task 6-10。
+
+## 2026-08-13T23:30:00+08:00 - TASK-06 - 文件工具、变更日志与精准回滚
+
+- **状态**：实现完成，等待负责人提交；当前工作树为 `feature/pr02-agent-loop`，未执行 commit/push。
+- **实现 subagent**：`task06_impl` 写入 Task 6 测试并确认 RED 后未在时间盒内完成实现；控制器接管并完成最小实现、回归测试和两阶段审查。没有人工用户代码修改。
+- **TDD 证据**：新增测试首次收集因 `ModuleNotFoundError: coding_agent_harness.file_tools` 真实红灯；实现后 Task 6 测试为 `12 passed`。审查发现的两个 fail-closed 边界先新增回归测试并得到 `2 failed`：创建操作在日志前创建父目录、变更完成持久化失败后留下新内容；修复后 Task 6 测试为 `14 passed`。
+- **实现范围**：新增 `journal.py`、`file_tools.py` 和 `tests/test_journal.py`、`tests/test_file_tools.py`；扩展 `storage.py` 的 `ChangeRecord/create_change/get_change/list_changes/finish_change`；扩展 `tests/conftest.py` 的 Task 6 fixtures。文件工具复用 `WorkspaceGuard`，实现 UTF-8 有界读取、排序/限额/截断列举、精确替换、创建、删除、备份先行、原子写入和 fail-closed；回滚按序列逆序校验指纹并只处理本会话变更。
+- **规格审查**：对照 SPEC/PLAN 检查路径围栏、备份在仓库外、日志先于副作用、原子修改、漂移拒绝、无关文件保护和不使用 Git；控制器复核无 Critical/Important 遗留。
+- **质量审查**：发现并修复创建父目录过早、完成日志失败后不恢复、未使用导入、重复 fixture 和 strict mypy 类型缺口；修复后 Ruff 通过、strict mypy 通过。
+- **验证证据**：Task 6 `14 passed`；PR-01 + Task 6 回归 `290 passed, 3 skipped`；3 个 skip 仍为 Windows `WinError 1314` 符号链接权限；`git diff --check` 通过；敏感凭据模式扫描无新增命中。
+- **未提交 diff**：`src/coding_agent_harness/journal.py`、`src/coding_agent_harness/file_tools.py`、`src/coding_agent_harness/storage.py`、`tests/conftest.py`、`tests/test_journal.py`、`tests/test_file_tools.py`；临时 pytest 目录已清理。

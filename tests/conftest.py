@@ -34,5 +34,27 @@ def store(app_data: Path) -> StateStore:
 
 
 @pytest.fixture
+def session_id(store: StateStore, workspace: Path) -> str:
+    project_id = store.upsert_project(workspace, "Task 6")
+    return store.create_session(project_id, "file tools")
+
+
+@pytest.fixture
+def journal(store: StateStore, app_data: Path):
+    from coding_agent_harness.journal import ChangeJournal
+
+    return ChangeJournal(store, app_data / "backups")
+
+
+@pytest.fixture
+def tools(workspace: Path, journal):
+    from coding_agent_harness.file_tools import FileTools
+
+    (workspace / "existing.py").write_text("before\n", encoding="utf-8")
+    (workspace / "delete.py").write_text("delete me\n", encoding="utf-8")
+    return FileTools(workspace, journal)
+
+
+@pytest.fixture
 def audit_writer() -> MemoryAuditWriter:
     return MemoryAuditWriter()
