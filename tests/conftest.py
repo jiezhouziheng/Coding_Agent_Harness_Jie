@@ -58,3 +58,25 @@ def tools(workspace: Path, journal):
 @pytest.fixture
 def audit_writer() -> MemoryAuditWriter:
     return MemoryAuditWriter()
+
+
+class FakeCommandRunner:
+    def __init__(self) -> None:
+        self.calls: list[object] = []
+        self.queue_items: list[object] = []
+
+    def queue(self, *, exit_code: int | None = 0, stdout: str = "", stderr: str = "", timed_out: bool = False, duration_ms: int = 1) -> None:
+        from types import SimpleNamespace
+
+        self.queue_items.append(SimpleNamespace(exit_code=exit_code, stdout=stdout, stderr=stderr, timed_out=timed_out, duration_ms=duration_ms, truncated=False))
+
+    def run(self, action, *, workspace):
+        self.calls.append((action, workspace))
+        if not self.queue_items:
+            raise AssertionError("fake runner queue is empty")
+        return self.queue_items.pop(0)
+
+
+@pytest.fixture
+def fake_runner() -> FakeCommandRunner:
+    return FakeCommandRunner()

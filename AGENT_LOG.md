@@ -199,3 +199,13 @@
 - **质量审查**：发现并修复创建父目录过早、完成日志失败后不恢复、未使用导入、重复 fixture 和 strict mypy 类型缺口；修复后 Ruff 通过、strict mypy 通过。
 - **验证证据**：Task 6 `14 passed`；PR-01 + Task 6 回归 `290 passed, 3 skipped`；3 个 skip 仍为 Windows `WinError 1314` 符号链接权限；`git diff --check` 通过；敏感凭据模式扫描无新增命中。
 - **未提交 diff**：`src/coding_agent_harness/journal.py`、`src/coding_agent_harness/file_tools.py`、`src/coding_agent_harness/storage.py`、`tests/conftest.py`、`tests/test_journal.py`、`tests/test_file_tools.py`；临时 pytest 目录已清理。
+
+## 2026-08-14T00:15:00+08:00 - TASK-07 - 白名单子进程、验证流水线与 Dispatcher
+
+- **状态**：实现完成，等待负责人提交；Task 7 commit 尚未创建。
+- **实现 subagent**：`task07_impl` 写入测试并确认 RED 后未在时间盒内完成实现；控制器接管最小实现、类型收紧和审查回归。无用户人工代码修改。
+- **TDD 证据**：三个测试模块首次收集均因对应生产模块不存在而真实 RED（3 个 `ModuleNotFoundError`）；实现后 Task 7 测试为 `18 passed`。
+- **实现范围**：新增 `command_runner.py`、`validation.py`、`dispatcher.py`，扩展 `tests/conftest.py`。命令执行采用结构化参数、`shell=False`、Python 白名单、工作区 cwd、敏感环境清理、超时进程树终止、输出截断和脱敏；验证流水线支持 baseline/fast/final、失败状态与 Observation 分类；Dispatcher 只接受 `AuthorizationGrant`，校验指纹、策略决策和已消费审批后路由工具。
+- **规格/质量审查**：复核 Policy Gateway 与 Dispatcher 边界、DENY/审批 fail-closed、验证完成门禁、跨平台终止和异常边界；修复未排序导入、可变类属性、`check=False` 缺失、宽泛异常捕获和 strict mypy 类型问题。无 Critical/Important 遗留。
+- **验证证据**：Task 7 `18 passed`；Ruff 通过；strict mypy 通过；Task 6+7 回归将在提交前执行；敏感输出测试仅使用 fake secret 与本地 Mock 行为。
+- **未提交 diff**：`src/coding_agent_harness/command_runner.py`、`src/coding_agent_harness/validation.py`、`src/coding_agent_harness/dispatcher.py`、`tests/conftest.py`、`tests/test_command_runner.py`、`tests/test_validation.py`、`tests/test_dispatcher.py`。
