@@ -171,3 +171,12 @@
 - **规格与质量评审**：规格复审 `APPROVED`；质量复审最终 `APPROVED`。评审期间发现的 Critical/Important 项均已用回归测试覆盖并修复。
 - **最终验证**：全量 `pytest` 为 `278 passed, 3 skipped`；3 个 skip 均为 Windows `WinError 1314` 符号链接权限限制。Ruff、strict mypy、`git diff --check` 通过；敏感凭据模式扫描无命中。
 - **清理与交接**：已删除工作树根目录下本轮可再生成的 8 个 `.pytest-task05-*` 临时目录；既有 ACL 拒绝访问的 `.pytest_cache` 未强制删除。Task 5 源码提交为 `a273c81`，文档提交和 PR 推送仍待当前流程完成。
+
+## 2026-08-13T20:45:00+08:00 - PR-01 - 提交 Task 1-5 治理核心
+
+- **状态**：已推送 `feature/pr01-governance-core` 并创建公开 Pull Request `#1`：`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/1`；base 为 `main`，head 为 `feature/pr01-governance-core`。
+- **提交历史**：Task 1 `251c18a`、Task 2 `011880d`、Task 3 `9ed7ae4`、Task 4 `e480563`、Task 5 源码与测试 `a273c81`、Task 5 过程文档 `b4d8f62`，保持线性历史且未 squash。
+- **PR 描述**：逐项标注各 Task 的 subagent/controller、人工代码修改为无、规格与质量审查结论，以及 pytest/Ruff/mypy/差异和凭据扫描证据。
+- **最终验证**：提交后重新运行全量 pytest 得到 `278 passed, 3 skipped`；3 个 skip 均为 Windows `WinError 1314` 符号链接权限。远端分支和 PR head 均已核对。
+- **Git 整理**：清理前确认 Task 5 worktree 的陈旧 `index.lock` 已约 24 小时且无 Git/SSH/GH 进程占用，只删除该精确锁文件。主仓库已暂存的空 `REFLECTION.md` 属于负责人现有改动，保持原状且未进入 PR-01。
+- **人工干预**：负责人审阅 Task 5 后确认无问题，并明确授权智能体执行本次 add、commit、push 和 PR 创建；没有人工代码修改。
