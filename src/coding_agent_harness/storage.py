@@ -90,6 +90,33 @@ class AuditOutboxRecord:
     flushed_at: str | None
 
 
+@dataclass(frozen=True)
+class ChangeRecord:
+    id: str
+    session_id: str
+    relative_path: str
+    operation: str
+    before_digest: str | None
+    after_digest: str | None
+    backup_ref: str | None
+    sequence: int
+    created_at: str
+
+
+@dataclass(frozen=True)
+class MemoryRecord:
+    id: str
+    project_id: str
+    source_session_id: str
+    memory_type: str
+    content: str
+    evidence_action_id: str | None
+    tags: tuple[str, ...]
+    status: str
+    created_at: str
+    updated_at: str
+
+
 _ACTIVE_STATUSES = tuple(
     status.value
     for status in (
@@ -321,6 +348,99 @@ class StateStore:
             )
             return action_id
 
+    def create_change(
+        self,
+        *,
+        session_id: str,
+        relative_path: str,
+        operation: str,
+        before_digest: str | None,
+        backup_ref: str | None,
+        after_digest: str | None = None,
+    ) -> ChangeRecord:
+        if not session_id or not relative_path or operation not in {"create", "modify", "delete"}:
+            raise StorageError("invalid_change")
+        with self._write_transaction():
+            self._require_session(session_id)
+            row = self._execute(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence FROM changes WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            sequence = int(row["next_sequence"])
+            change_id = _new_id()
+            self._execute(
+                "INSERT INTO changes(id, session_id, relative_path, operation, before_digest, after_digest, backup_ref, sequence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (change_id, session_id, relative_path, operation, before_digest, after_digest, backup_ref, sequence, self._now()),
+            )
+            return self.get_change(change_id)
+
+    def get_change(self, change_id: str) -> ChangeRecord:
+        row = self._execute("SELECT * FROM changes WHERE id = ?", (change_id,)).fetchone()
+        if row is None:
+            raise StorageError("change_not_found")
+        return ChangeRecord(
+            id=str(row["id"]), session_id=str(row["session_id"]),
+            relative_path=str(row["relative_path"]), operation=str(row["operation"]),
+            before_digest=None if row["before_digest"] is None else str(row["before_digest"]),
+            after_digest=None if row["after_digest"] is None else str(row["after_digest"]),
+            backup_ref=None if row["backup_ref"] is None else str(row["backup_ref"]),
+            sequence=int(row["sequence"]), created_at=str(row["created_at"]),
+        )
+
+    def list_changes(self, session_id: str) -> tuple[ChangeRecord, ...]:
+        self._require_session(session_id)
+        rows = self._execute("SELECT id FROM changes WHERE session_id = ? ORDER BY sequence", (session_id,)).fetchall()
+        return tuple(self.get_change(str(row["id"])) for row in rows)
+
+    def finish_change(self, change_id: str, *, after_digest: str) -> ChangeRecord:
+        if not after_digest:
+            raise StorageError("invalid_change")
+        with self._write_transaction():
+            cursor = self._execute("UPDATE changes SET after_digest = ? WHERE id = ?", (after_digest, change_id))
+            if cursor.rowcount != 1:
+                raise StorageError("change_not_found")
+            return self.get_change(change_id)
+
+    def create_memory(self, project_id: str, session_id: str, memory_type: str, content: str, evidence_action_id: str | None, tags: tuple[str, ...], status: str) -> MemoryRecord:
+        if not project_id or not session_id or not memory_type or not content or status not in {"CANDIDATE", "ACTIVE"}:
+            raise StorageError("invalid_memory")
+        with self._write_transaction():
+            self._require_session(session_id)
+            record_id = _new_id()
+            now = self._now()
+            self._execute("INSERT INTO memory_entries(id, project_id, source_session_id, memory_type, content, evidence_action_id, tags_json, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (record_id, project_id, session_id, memory_type, content, evidence_action_id, _dump(list(tags)), status, now, now))
+            return self.get_memory(record_id)
+
+    def get_memory(self, memory_id: str) -> MemoryRecord:
+        row = self._execute("SELECT * FROM memory_entries WHERE id = ?", (memory_id,)).fetchone()
+        if row is None:
+            raise StorageError("memory_not_found")
+        tags = json.loads(str(row["tags_json"]))
+        if not isinstance(tags, list) or any(not isinstance(item, str) for item in tags):
+            raise StorageError("corrupt_memory")
+        return MemoryRecord(str(row["id"]), str(row["project_id"]), str(row["source_session_id"]), str(row["memory_type"]), str(row["content"]), None if row["evidence_action_id"] is None else str(row["evidence_action_id"]), tuple(tags), str(row["status"]), str(row["created_at"]), str(row["updated_at"]))
+
+    def transition_memory(self, memory_id: str, allowed: set[str], target: str) -> MemoryRecord:
+        with self._write_transaction():
+            current = self.get_memory(memory_id)
+            if current.status not in allowed:
+                raise StorageError("illegal_memory_transition")
+            self._execute("UPDATE memory_entries SET status = ?, updated_at = ? WHERE id = ?", (target, self._now(), memory_id))
+            return self.get_memory(memory_id)
+
+    def search_active_memory(self, project_id: str, keywords: tuple[str, ...], limit: int) -> tuple[MemoryRecord, ...]:
+        rows = self._execute("SELECT id FROM memory_entries WHERE project_id = ? AND status = 'ACTIVE' ORDER BY rowid DESC", (project_id,)).fetchall()
+        values = tuple(self.get_memory(str(row["id"])) for row in rows)
+        if not keywords:
+            return values[: min(limit, 5)]
+        terms = tuple(term.casefold() for term in keywords)
+        matching = tuple(item for item in values if any(term in (item.content + " " + " ".join(item.tags)).casefold() for term in terms))
+        return matching[: min(limit, 5)]
+
+    def action_has_successful_validation(self, session_id: str, action_id: str) -> bool:
+        row = self._execute("SELECT 1 FROM validations WHERE session_id = ? AND status = 'passed' AND (id = ? OR validator_id = ?)", (session_id, action_id, action_id)).fetchone()
+        return row is not None
+
     def get_action(self, action_id: str) -> StoredAction:
         row = self._execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
         if row is None:
@@ -550,6 +670,22 @@ class StateStore:
             return Observation.model_validate(dict(row))
         except Exception as error:
             raise StorageError("corrupt_observation") from error
+
+    def query_context_inputs(self, session_id: str, *, memory_limit: int = 5) -> dict[str, object]:
+        """Return bounded, redaction-ready inputs for the model context."""
+        session = self.get_session(session_id)
+        latest = self.latest_observation(session_id)
+        validations = self.list_validations(session_id)
+        memories = self.search_active_memory(session.project_id, (), min(memory_limit, 5))
+        return {
+            "task": session.task,
+            "completion_criteria": "all required validators pass",
+            "policy_summary": "actions are evaluated by the governed policy gateway",
+            "validator_summary": validations[-1].summary if validations else "",
+            "current_failure": latest.summary if latest and latest.category != "success" else "",
+            "observations": (latest.summary,) if latest is not None else (),
+            "memories": tuple(memory.content for memory in memories),
+        }
 
     def record_validation(self, session_id: str, result: ValidationResult) -> str:
         return self.record_validations(session_id, [result])[0]

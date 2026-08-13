@@ -1,5 +1,27 @@
 # Coding Agent Harness Jie - Agent 协作日志
 
+## 2026-08-14T02:00:00+08:00 - TASK-10 - Governed agent loop and completion gate
+
+- **状态**：实现完成，等待负责人提交；PR-02 worktree 为 `feature/pr02-agent-loop`。
+- **实现 subagent**：`task10_impl` 生成测试与实现后因流断开未交付最终报告；控制器 `codex-main` 完成集成审查、修复和验证；无用户人工代码修改。
+- **TDD 证据**：Task 10 测试先于 `engine.py` 实现创建；首次导入缺少主循环模块为真实 RED；最小闭环实现后 `tests/test_engine.py` 为 `6 passed`。
+- **实现范围**：基线/快速/最终验证；ContextBuilder -> LLM -> PolicyGateway -> Dispatcher 闭环；DENY 不触发 Dispatcher；审批请求持久化后暂停；最终验证成功门禁唯一允许 `SUCCEEDED`；失败转 `NEEDS_USER_DECISION`；协议错误、LLM/策略/上下文/工具异常和预算上限均有结构化暂停状态；验证失败进入下一次有界上下文。
+- **规格审查**：补充真实 `StateStore.query_context_inputs`，上下文只读取任务、摘要、最近观察和最多 5 条 ACTIVE 记忆；`propose_memory` 按 session 的真实 project 归属，拒绝写死项目 ID。
+- **质量审查**：分离上下文构建异常与 LLM 协议异常；错误证据先脱敏；复核状态转移、完成门禁和 Dispatcher fail-closed 边界；Ruff 与 strict mypy 通过。
+- **验证证据**：Task 10 测试 `6 passed`；Task 10 + memory/context 集成回归 `13 passed`；PR-02 全量回归 `331 passed, 3 skipped`，3 个 skip 均为 Windows WinError 1314 符号链接权限。
+- **待提交 diff**：`src/coding_agent_harness/engine.py`、`src/coding_agent_harness/storage.py`、`src/coding_agent_harness/memory.py`、`tests/test_engine.py`、`tests/test_memory.py`。
+
+## 2026-08-14T01:30:00+08:00 - TASK-09 - Keyring credentials and injectable LLM adapters
+
+- **状态**：实现完成，等待负责人提交；PR-02 worktree 为 `feature/pr02-agent-loop`。
+- **实现 subagent**：`task09_impl` 未在时间盒内交付；控制器 `codex-main` 接管实现、测试和两阶段审查；无用户人工代码修改。
+- **TDD 证据**：新增测试首次运行得到 `ModuleNotFoundError: coding_agent_harness.credentials` 与 `ModuleNotFoundError: coding_agent_harness.llm`；最小实现后基础测试 `4 passed`；规格回归补充后 Task 9 测试 `7 passed`。
+- **实现范围**：Keyring/内存凭据后端、凭据状态与缺失/空值 fail-closed；Action tool schemas；上下文可观测的 ScriptedMockLLM；OpenAI-compatible native tool-call 客户端；HTTP timeout/连接/5xx 最多重试 2 次，永久 4xx 不重试，LLM 异常文本脱敏。
+- **规格审查**：确认离线测试不读取真实 Keyring、不访问真实 LLM，API secret 仅进入 Authorization header，不进入 status 或错误文本；`tool` 常量字段从模型 schema 移除。
+- **质量审查**：补充空凭据、缺失凭据、timeout/503 retry、401 no-retry 和 secret non-leak 回归；Ruff 与 strict mypy 均通过。
+- **验证证据**：`pytest tests/test_credentials.py tests/test_llm.py` 为 `7 passed`；`ruff check` 通过；`mypy --strict` 通过。
+- **待提交 diff**：`src/coding_agent_harness/credentials.py`、`src/coding_agent_harness/llm.py`、`tests/test_credentials.py`、`tests/test_llm.py`。
+
 > 记录原则：只记录可由对话、文件、测试或 Git 历史核验的事实；不补写不存在的执行结果。
 
 ## 记录格式
@@ -188,3 +210,34 @@
 - **合并后验证**：在合并后的 `main` 上重新运行全量 pytest，结果为 `278 passed, 3 skipped`；3 个 skip 均由 Windows `WinError 1314` 符号链接权限造成。
 - **工作树边界**：主仓库当前仅保留负责人原先已暂存的空 `REFLECTION.md`；PR-01 分支和 worktree 暂不删除，等待负责人决定是否清理。
 - **下一波次**：后续开发进入 PR-02，分支建议为 `feature/pr02-agent-loop`，范围为 Task 6-10。
+
+## 2026-08-13T23:30:00+08:00 - TASK-06 - 文件工具、变更日志与精准回滚
+
+- **状态**：实现完成，等待负责人提交；当前工作树为 `feature/pr02-agent-loop`，未执行 commit/push。
+- **实现 subagent**：`task06_impl` 写入 Task 6 测试并确认 RED 后未在时间盒内完成实现；控制器接管并完成最小实现、回归测试和两阶段审查。没有人工用户代码修改。
+- **TDD 证据**：新增测试首次收集因 `ModuleNotFoundError: coding_agent_harness.file_tools` 真实红灯；实现后 Task 6 测试为 `12 passed`。审查发现的两个 fail-closed 边界先新增回归测试并得到 `2 failed`：创建操作在日志前创建父目录、变更完成持久化失败后留下新内容；修复后 Task 6 测试为 `14 passed`。
+- **实现范围**：新增 `journal.py`、`file_tools.py` 和 `tests/test_journal.py`、`tests/test_file_tools.py`；扩展 `storage.py` 的 `ChangeRecord/create_change/get_change/list_changes/finish_change`；扩展 `tests/conftest.py` 的 Task 6 fixtures。文件工具复用 `WorkspaceGuard`，实现 UTF-8 有界读取、排序/限额/截断列举、精确替换、创建、删除、备份先行、原子写入和 fail-closed；回滚按序列逆序校验指纹并只处理本会话变更。
+- **规格审查**：对照 SPEC/PLAN 检查路径围栏、备份在仓库外、日志先于副作用、原子修改、漂移拒绝、无关文件保护和不使用 Git；控制器复核无 Critical/Important 遗留。
+- **质量审查**：发现并修复创建父目录过早、完成日志失败后不恢复、未使用导入、重复 fixture 和 strict mypy 类型缺口；修复后 Ruff 通过、strict mypy 通过。
+- **验证证据**：Task 6 `14 passed`；PR-01 + Task 6 回归 `290 passed, 3 skipped`；3 个 skip 仍为 Windows `WinError 1314` 符号链接权限；`git diff --check` 通过；敏感凭据模式扫描无新增命中。
+- **未提交 diff**：`src/coding_agent_harness/journal.py`、`src/coding_agent_harness/file_tools.py`、`src/coding_agent_harness/storage.py`、`tests/conftest.py`、`tests/test_journal.py`、`tests/test_file_tools.py`；临时 pytest 目录已清理。
+
+## 2026-08-14T00:15:00+08:00 - TASK-07 - 白名单子进程、验证流水线与 Dispatcher
+
+- **状态**：实现完成，等待负责人提交；Task 7 commit 尚未创建。
+- **实现 subagent**：`task07_impl` 写入测试并确认 RED 后未在时间盒内完成实现；控制器接管最小实现、类型收紧和审查回归。无用户人工代码修改。
+- **TDD 证据**：三个测试模块首次收集均因对应生产模块不存在而真实 RED（3 个 `ModuleNotFoundError`）；实现后 Task 7 测试为 `18 passed`。
+- **实现范围**：新增 `command_runner.py`、`validation.py`、`dispatcher.py`，扩展 `tests/conftest.py`。命令执行采用结构化参数、`shell=False`、Python 白名单、工作区 cwd、敏感环境清理、超时进程树终止、输出截断和脱敏；验证流水线支持 baseline/fast/final、失败状态与 Observation 分类；Dispatcher 只接受 `AuthorizationGrant`，校验指纹、策略决策和已消费审批后路由工具。
+- **规格/质量审查**：复核 Policy Gateway 与 Dispatcher 边界、DENY/审批 fail-closed、验证完成门禁、跨平台终止和异常边界；修复未排序导入、可变类属性、`check=False` 缺失、宽泛异常捕获和 strict mypy 类型问题。无 Critical/Important 遗留。
+- **验证证据**：Task 7 `18 passed`；Ruff 通过；strict mypy 通过；Task 6+7 回归将在提交前执行；敏感输出测试仅使用 fake secret 与本地 Mock 行为。
+- **未提交 diff**：`src/coding_agent_harness/command_runner.py`、`src/coding_agent_harness/validation.py`、`src/coding_agent_harness/dispatcher.py`、`tests/conftest.py`、`tests/test_command_runner.py`、`tests/test_validation.py`、`tests/test_dispatcher.py`。
+
+## 2026-08-14T01:00:00+08:00 - TASK-08 - 受治理记忆与有界上下文
+
+- **状态**：实现完成，等待负责人提交；Task 8 commit 尚未创建。
+- **实现 subagent**：`task08_impl` 未在时间盒内写入测试；控制器接管测试、最小实现和审查回归。无用户人工代码修改。
+- **TDD 证据**：新增 memory/context 测试首次收集因生产模块不存在真实 RED（2 个 `ModuleNotFoundError`）；最小实现后基础测试为 `6 passed`。审查新增搜索过滤回归先得到失败（匹配项位于最初 limit 之外），修复过滤后限额后 Task 8 测试为 `8 passed`。
+- **实现范围**：新增 `memory.py`、`context.py`；扩展 `storage.py` 的 MemoryRecord、候选/激活生命周期、项目/会话绑定、验证证据查询和有界搜索；上下文模型包含任务、完成标准、策略、工具、验证摘要、当前失败、源码片段、Observation 和最多 5 条记忆，并按字节预算先脱敏再裁剪。
+- **规格/质量审查**：确认四类记忆白名单、候选不可检索、用户批准/验证证据激活、拒绝/删除、项目范围和最多五条检索；修复搜索先过滤后限额及 strict 类型问题。无 Critical/Important 遗留。
+- **验证证据**：Task 8 `8 passed`；Ruff 通过；strict mypy 通过；Task 6-8 全量回归将在提交前执行；无真实 Keyring/LLM/网络访问。
+- **未提交 diff**：`src/coding_agent_harness/memory.py`、`src/coding_agent_harness/context.py`、`src/coding_agent_harness/storage.py`、`tests/test_memory.py`、`tests/test_context.py`。
