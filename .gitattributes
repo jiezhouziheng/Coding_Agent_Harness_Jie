@@ -1,5 +1,6 @@
 * text=auto
 
+# Source, docs, and static assets stay LF; Windows PowerShell stays CRLF.
 *.py text eol=lf
 *.md text eol=lf
 *.toml text eol=lf
@@ -11,3 +12,5 @@
 *.js text eol=lf
 *.sh text eol=lf
 *.ps1 text eol=crlf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf

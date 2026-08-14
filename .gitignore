@@ -32,11 +32,13 @@ dist/
 # Harness-local private state
 .cah/
 *.db
-*.sqlite
-*.sqlite3
+*.sqlite*
 audit/
 backups/
 reports/private/
+
+# Public static demo data is intentionally tracked.
+!src/coding_agent_harness/web/mock-report.json
 
 # Linked worktrees live outside the tracked source tree
 .worktrees/

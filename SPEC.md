@@ -1,10 +1,12 @@
 # Coding Agent Harness Jie - 项目规约
 
-> 状态：设计已批准，尚未开始实现
+> 状态：Task 1-14 实现完成；Task 15 本地验收通过；远端 CI/Pages、PR 与最终 ZIP 交付验证进行中
 >
 > 负责人：Jie
 >
 > 日期：2026-08-11
+>
+> 本地验收日期：2026-08-14
 >
 > 开发方法：Superpowers、TDD、subagent 驱动开发
 

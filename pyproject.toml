@@ -18,9 +18,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "build>=1.2,<2",
+    "hatchling>=1.27",
     "mypy>=1.17,<2",
     "pytest>=8.4,<9",
     "pytest-cov>=6.2,<7",
+    "PyYAML>=6,<7",
     "ruff>=0.12,<1",
 ]
 
@@ -29,6 +31,7 @@ cah = "coding_agent_harness.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/coding_agent_harness"]
+include = ["src/coding_agent_harness/web/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

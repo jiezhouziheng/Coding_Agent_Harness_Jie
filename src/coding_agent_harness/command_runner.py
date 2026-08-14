@@ -4,6 +4,7 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import ClassVar
@@ -45,38 +46,41 @@ class CommandRunner:
         except SecurityViolation as error:
             raise ValueError("workspace_cwd_invalid") from error
         executable = sys.executable
-        flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        flags = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)) if os.name == "nt" else 0
         started = time.monotonic()
-        process = subprocess.Popen(
-            [executable, *action.args],
-            cwd=cwd,
-            env=scrub_environment(dict(os.environ)),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            shell=False,
-            start_new_session=os.name != "nt",
-            creationflags=flags,
-        )
-        timed_out = False
-        try:
-            stdout, stderr = process.communicate(timeout=action.timeout_seconds)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            if os.name == "nt":
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-                    capture_output=True,
-                    check=False,
-                    shell=False,
-                )
-            else:
-                killpg = getattr(os, "killpg", None)
-                if callable(killpg):
-                    killpg(process.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+        with tempfile.TemporaryDirectory(prefix="cah-pycache-") as pycache_prefix:
+            environment = scrub_environment(dict(os.environ))
+            environment["PYTHONPYCACHEPREFIX"] = pycache_prefix
+            process = subprocess.Popen(
+                [executable, *action.args],
+                cwd=cwd,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                shell=False,
+                start_new_session=os.name != "nt",
+                creationflags=flags,
+            )
+            timed_out = False
+            try:
+                stdout, stderr = process.communicate(timeout=action.timeout_seconds)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                if os.name == "nt":
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                        capture_output=True,
+                        check=False,
+                        shell=False,
+                    )
                 else:
-                    os.kill(process.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
-            stdout, stderr = process.communicate()
+                    killpg = getattr(os, "killpg", None)
+                    if callable(killpg):
+                        killpg(process.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+                    else:
+                        os.kill(process.pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+                stdout, stderr = process.communicate()
         combined = (stdout + stderr).encode("utf-8", errors="replace")
         truncated = len(combined) > self.max_output_bytes
         if truncated:
