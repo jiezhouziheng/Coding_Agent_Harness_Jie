@@ -46,7 +46,7 @@ class CommandRunner:
         except SecurityViolation as error:
             raise ValueError("workspace_cwd_invalid") from error
         executable = sys.executable
-        flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        flags = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)) if os.name == "nt" else 0
         started = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="cah-pycache-") as pycache_prefix:
             environment = scrub_environment(dict(os.environ))

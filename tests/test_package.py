@@ -182,6 +182,24 @@ def test_github_ci_has_offline_quality_and_distribution_contract() -> None:
     assert upload["with"] == {"name": "python-distributions", "path": "dist/*"}
 
 
+@pytest.mark.parametrize("platform", ("win32", "linux"))
+def test_strict_mypy_passes_for_supported_ci_platforms(platform: str) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy", "--strict", "--platform", platform, "src"],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 0, (
+        f"strict mypy failed for {platform}\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
 def test_gitlab_ci_matches_quality_and_distribution_contract() -> None:
     gitlab = _load_yaml(".gitlab-ci.yml")
     assert gitlab["image"] == "python:3.13"

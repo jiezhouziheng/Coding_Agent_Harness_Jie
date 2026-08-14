@@ -203,7 +203,7 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 已合并 | `54f74a6` |
 | 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 已合并 | `a90d95a` |
 | 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | `79fb0cd89849cafe003a991542343ea9bfee1812` |
-| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；PR #4 的 CI 修复已在生产 CommandRunner 边界完成 TDD，修复规格/质量复审均 APPROVED；commit、远端复跑、Pages 与 ZIP 待主控核验 | `bc1af8f8795ab79da1a34060efe7ccb763a05115` |
+| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；第一轮 CI 修复已提交；第二轮跨平台 mypy 修复规格/质量复审均 APPROVED；commit、远端复跑、Pages 与 ZIP 待主控核验 | `bc1af8f8795ab79da1a34060efe7ccb763a05115`；remediation `77acec3c1f651f2df6dbcd651913f335b5181e37` |
 
 ## 6. 替代冷启动审查 - 已执行
 
@@ -3432,10 +3432,38 @@ TEMP 的 `TemporaryDirectory(prefix="cah-pycache-")` 生命周期内，基于 `s
 workspace 既有 `__pycache__` 未被删除、Runner 前缀位于 workspace 外、退出后已清理；未为该
 哨兵虚构测试名或命令。
 
-当前状态：上述生产边界修复仍待 fresh 完整门禁、commit、push 和两种事件的远端复跑；不得
-把本地 GREEN 冒充远端 success，artifact 仍不存在。Pages 仍未远端部署或核验。本地静态扫描
-确认没有 XMLHttpRequest、WebSocket、EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、
-按钮或事件控制通道；唯一 `fetch` 目标为同目录 `./mock-report.json`。
+第一轮生产边界修复已提交为 `77acec3c1f651f2df6dbcd651913f335b5181e37` 并 push。该 head 的
+push run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31773237061`
+与 pull_request run
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31773238783` 再次真实失败；
+两者的 Run tests 与 Ruff steps 均为 success，strict mypy step 均在
+`command_runner.py:49` 失败：`Module has no attribute "CREATE_NEW_PROCESS_GROUP" [attr-defined]`。
+因此 build 与 artifact upload 均被跳过，不能记录 artifact 成功。
+
+第二轮根因是运行时已有 `os.name == "nt"` 分支保护，但 mypy `--platform linux` 仍解析了对
+Windows 专属模块属性的直接引用。`pr04_ci_fix` 先在 `tests/test_package.py` 加入行为合同，通过
+当前解释器分别以 `--platform win32` 和 `--platform linux` 执行 strict mypy，并带 120 秒超时
+及完整失败输出；旧实现真实 RED 为 `1 failed, 1 passed`，linux case 精确复现远端错误。最小
+修复仅把常量读取改为 `int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))`，Windows
+分支仍使用原常量值，其他平台仍为 0，不改变运行时语义；双平台 GREEN 为 `2 passed`。
+实际实现 subagent：`pr04_ci_fix`；人工修改：无。
+
+第二轮本地验证：直接 strict mypy `--platform win32` 与 `--platform linux` 均对 23 个源码文件
+通过；package/CommandRunner/integration/demo targeted 为 `31 passed`；全量为
+`357 passed, 3 skipped`，3 个 skip 仍仅为 Windows `WinError 1314` 符号链接权限。全量测试的
+worktree basetemp 含故意生成的非法 `pyproject.toml`，导致随后首次 Ruff 扫描测试产物失败；
+在校验绝对路径并清除本轮 basetemp 后 Ruff 重新运行为 `All checks passed!`，未修改源码来掩盖
+环境产物。原始三幕 demo exit code 0、均 `passed=true`，且 `network_used=false`、
+`real_keyring_used=false`；离线 `python -m build --no-isolation` 成功构建 wheel/sdist。
+
+第二轮修复的独立规格复审与质量复审均为 `APPROVED`，无遗留 finding。质量复审额外验证了
+Windows runtime 分支，原始输出为 `os_name=nt flags=512 expected=512 equal=True`，证明平台安全
+属性读取没有改变 Windows `CREATE_NEW_PROCESS_GROUP` 的实际 flag 值。
+
+当前状态：第二轮修复仍待 fresh 最终门禁、commit、push 和两种事件的再次远端复跑；不得把
+本地 GREEN 冒充远端 success，artifact 仍不存在。Pages 仍未远端部署或核验。本地静态扫描确认
+没有 XMLHttpRequest、WebSocket、EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、按钮
+或事件控制通道；唯一 `fetch` 目标为同目录 `./mock-report.json`。
 
 - [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-17 远端部分仍待核验）**
 
@@ -3534,4 +3562,4 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：Task 1-14 已有真实提交；Task 15 本地质量门禁、机制演示、关键回归、凭据/敏感产物扫描、wheel 隔离安装和原本两阶段最终复审已经完成。PR #4 的 push 与 pull_request CI 随后真实暴露同秒、同大小源码触发的 timestamp pyc 复用问题；`pr04_ci_fix` 的 demo 数据 workaround 被质量审查判定 `CHANGES REQUIRED` 后已撤销，现已用 TDD 在生产 CommandRunner 边界完成每次子进程独立 pycache 前缀的最小修复和全量回归。该修复的独立规格/质量复审均为 `APPROVED` 且无遗留，仍待 fresh 门禁、commit、push 与远端复跑。Actions artifact、Pages URL 与课程 ZIP 继续由主控按真实结果关闭，不预填成功证据。
+当前状态：Task 1-14 已有真实提交；Task 15 本地验收与原本两阶段最终复审已经完成。PR #4 第一轮 CI 暴露 timestamp pyc 复用问题，生产 CommandRunner 修复 `77acec3` 已通过复审并 push；第二轮 push/pull_request CI 的 pytest 与 Ruff 成功，但 Linux strict mypy 因直接引用 Windows 专属常量失败。`pr04_ci_fix` 已先取得跨平台 RED，再以平台安全 `getattr` 完成本地双平台 GREEN、targeted、全量、Ruff、demo 与 build；该第二轮修复的独立规格/质量复审也均为 `APPROVED` 且无遗留，仍待 fresh 门禁、commit、push 与远端复跑。Actions artifact、Pages URL 与课程 ZIP 继续由主控按真实结果关闭，不预填成功证据。
