@@ -9,7 +9,7 @@
 - **规格审查**：三幕均离线运行；不读取真实 Keyring、不访问网络/真实 LLM；危险动作不触达 Dispatcher；审批重放 fail-closed；集成测试验证 `test_failure` 进入后续上下文和最终 `SUCCEEDED`。
 - **质量审查**：修复 import 排序、上下文 observation 类别丢失、测试模块缓存耦合和 `python -m coding_agent_harness.cli` 入口缺失；Ruff、strict mypy、`git diff --check` 通过。
 - **验证证据**：Task 13 定向 `2 passed`；PR-03 全量 `344 passed, 3 skipped`，3 个 skip 均为 Windows WinError 1314 符号链接权限限制。
-- **提交**：Task 11 `8c6d035`；Task 12 `54f74a6`；Task 13 `9c08553`。
+- **提交**：Task 11 `8c6d035`；Task 12 `54f74a6`；Task 13 `a90d95a`。
 - **待提交 diff**：`src/coding_agent_harness/demo.py`、`src/coding_agent_harness/application.py`、`src/coding_agent_harness/cli.py`、`tests/test_integration.py`、`tests/test_demo.py`。
 
 ## 2026-08-14T02:20:00+08:00 - TASK-11 - Durable recovery, workspace lock, and CLI
