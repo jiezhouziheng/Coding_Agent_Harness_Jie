@@ -44,6 +44,38 @@ class FakeLock:
             self.held = False
 
 
+class CountingEngineFactory:
+    def __init__(self, store) -> None:
+        self.store = store
+        self.create_calls = 0
+
+    def create(self, *, session_id: str):
+        self.create_calls += 1
+        return session_id, self
+
+    def run(self, session_id: str):
+        return self.store.get_session(session_id)
+
+
+class TrackingWorkspaceLock:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.acquired = False
+        self.released = False
+
+    def acquire(self):
+        self.acquired = True
+        return self
+
+    def release(self) -> None:
+        self.released = True
+
+
+class ExplodingResumeFactory:
+    def create(self, *, session_id: str):
+        raise RuntimeError(f"resume_factory_failed:{session_id}")
+
+
 @pytest.fixture
 def recovery_session(store, workspace: Path) -> str:
     project_id = store.upsert_project(workspace, "recovery")
@@ -83,3 +115,67 @@ def test_second_writer_for_same_workspace_is_rejected(workspace: Path, tmp_path:
     with pytest.raises(WorkspaceBusy):
         second_service.acquire_workspace(workspace, lock_root=tmp_path)
     first.release()
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        SessionStatus.PAUSED_LIMIT_REACHED,
+        SessionStatus.PAUSED_PROTOCOL_ERROR,
+        SessionStatus.PAUSED_WORKSPACE_DRIFT,
+        SessionStatus.PAUSED_INTERNAL_ERROR,
+        SessionStatus.SUCCEEDED,
+        SessionStatus.NEEDS_USER_DECISION,
+        SessionStatus.CHANGES_KEPT,
+        SessionStatus.ROLLED_BACK,
+    ],
+)
+def test_resume_and_run_returns_non_runnable_status_without_creating_engine(
+    store, workspace: Path, recovery_session: str, tmp_path: Path, status: SessionStatus
+) -> None:
+    store.transition_session(recovery_session, SessionStatus.RUNNING)
+    if status in {SessionStatus.CHANGES_KEPT, SessionStatus.ROLLED_BACK}:
+        store.transition_session(recovery_session, SessionStatus.NEEDS_USER_DECISION)
+    store.transition_session(recovery_session, status)
+    engine_factory = CountingEngineFactory(store)
+    service = SessionService(
+        store,
+        FakeJournal(),
+        FakeApprovals(),
+        None,
+        lock_root=tmp_path / "locks",
+    )
+    service.engine_factory = engine_factory
+
+    result = service.resume_and_run(recovery_session)
+
+    assert result.status is status
+    assert engine_factory.create_calls == 0
+
+
+def test_resume_and_run_releases_workspace_lock_when_factory_fails(
+    store, recovery_session: str, tmp_path: Path
+) -> None:
+    store.transition_session(recovery_session, SessionStatus.RUNNING)
+    locks: list[TrackingWorkspaceLock] = []
+
+    def lock_factory(path: Path) -> TrackingWorkspaceLock:
+        lock = TrackingWorkspaceLock(path)
+        locks.append(lock)
+        return lock
+
+    service = SessionService(
+        store,
+        FakeJournal(),
+        FakeApprovals(),
+        lock_factory,
+        lock_root=tmp_path / "locks",
+    )
+    service.engine_factory = ExplodingResumeFactory()
+
+    with pytest.raises(RuntimeError, match="resume_factory_failed"):
+        service.resume_and_run(recovery_session)
+
+    assert len(locks) == 1
+    assert locks[0].acquired is True
+    assert locks[0].released is True

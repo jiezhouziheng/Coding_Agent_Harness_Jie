@@ -3,8 +3,10 @@ from pathlib import Path
 import pytest
 
 from coding_agent_harness import file_tools as file_tools_module
+from coding_agent_harness.application import create_control_application
+from coding_agent_harness.credentials import MemoryCredentialBackend
 from coding_agent_harness.llm import ScriptedMockLLM
-from coding_agent_harness.models import SessionStatus
+from coding_agent_harness.models import ApprovalStatus, SessionStatus
 
 
 def seed_failing_repository(root: Path) -> None:
@@ -70,3 +72,80 @@ def test_same_size_edits_do_not_reuse_stale_bytecode(
     assert result.status is SessionStatus.SUCCEEDED
     assert "test_failure" in llm.contexts[2].model_dump_json()
     assert "return 2" in (tmp_path / "calc.py").read_text(encoding="utf-8")
+
+
+def test_approved_action_survives_pause_and_executes_once_on_resume(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "test_ok.py").write_text(
+        "def test_ok():\n    assert True\n", encoding="utf-8"
+    )
+    clients = iter(
+        (
+            ScriptedMockLLM(
+                [{"tool": "create_file", "path": "approved.py", "content": "ok = True\n"}]
+            ),
+            ScriptedMockLLM([{"tool": "finish", "summary": "approved change complete"}]),
+        )
+    )
+    app = create_control_application(
+        tmp_path / "app-data",
+        credential_backend=MemoryCredentialBackend(),
+        llm_factory=lambda: next(clients),
+    )
+
+    try:
+        paused = app.run(workspace=workspace, task="create approved file")
+        approval = app.store.list_pending_approvals(paused.session_id)[0]
+        app.approvals.approve(approval.id)
+
+        result = app.sessions.resume_and_run(paused.session_id)
+
+        assert result.status is SessionStatus.SUCCEEDED
+        assert (workspace / "approved.py").read_text(encoding="utf-8") == "ok = True\n"
+        assert app.store.get_approval(approval.id).status is ApprovalStatus.CONSUMED
+        assert len(app.store.list_changes(paused.session_id)) == 1
+    finally:
+        app.store.close()
+
+
+def test_denied_action_becomes_feedback_without_execution_on_resume(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "test_ok.py").write_text(
+        "def test_ok():\n    assert True\n", encoding="utf-8"
+    )
+    clients = iter(
+        (
+            ScriptedMockLLM(
+                [{"tool": "create_file", "path": "denied.py", "content": "bad = True\n"}]
+            ),
+            ScriptedMockLLM([{"tool": "finish", "summary": "respect denial"}]),
+        )
+    )
+    app = create_control_application(
+        tmp_path / "app-data",
+        credential_backend=MemoryCredentialBackend(),
+        llm_factory=lambda: next(clients),
+    )
+
+    try:
+        paused = app.run(workspace=workspace, task="request denied file")
+        approval = app.store.list_pending_approvals(paused.session_id)[0]
+        app.approvals.deny(approval.id)
+
+        result = app.sessions.resume_and_run(paused.session_id)
+
+        assert result.status is SessionStatus.SUCCEEDED
+        assert not (workspace / "denied.py").exists()
+        assert app.store.get_approval(approval.id).status is ApprovalStatus.DENIED
+        assert app.store.list_changes(paused.session_id) == ()
+        observation = app.store.latest_observation(paused.session_id)
+        assert observation is not None
+        assert observation.summary == "approval_denied"
+    finally:
+        app.store.close()

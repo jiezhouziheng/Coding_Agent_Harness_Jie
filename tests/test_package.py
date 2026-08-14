@@ -111,8 +111,10 @@ def test_required_delivery_files_and_readme_sections_exist() -> None:
         "## 安装",
         "## 运行",
         "## 凭据管理",
+        "## 分层配置",
         "## 凭据安全",
         "## 目录结构",
+        "## 第三方依赖与许可证",
         "## 静态 WebUI",
         "## 安全边界",
         "## 分发",
@@ -151,8 +153,25 @@ def test_required_delivery_files_and_readme_sections_exist() -> None:
         "CI 配置目标",
         "script_exhausted",
         "--mock-script",
+        "config.toml",
+        "harness.toml",
+        "httpx",
+        "BSD-3-Clause",
+        "PyYAML",
     ):
         assert required_text in readme
+
+
+def test_reflection_meets_length_and_ai_assistance_disclosure() -> None:
+    reflection = _read("REFLECTION.md")
+    body = re.sub(r"(?m)^(?:#|>).*?$|\s", "", reflection)
+
+    assert 1_500 <= len(body) <= 2_500
+    assert "Codex 辅助整理、校对与润色" in reflection
+    assert "TDD" in reflection
+    assert "Subagent" in reflection
+    assert "SPEC" in reflection
+    assert "PLAN" in reflection
 
 
 def test_github_ci_has_offline_quality_and_distribution_contract() -> None:

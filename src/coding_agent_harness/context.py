@@ -10,6 +10,7 @@ class ModelContext(StrictModel):
     task: str
     completion_criteria: str
     policy_summary: str
+    source_roots: tuple[str, ...] = ()
     tools: tuple[dict[str, object], ...] = ()
     validator_summary: str = ""
     current_failure: str = ""
@@ -19,11 +20,14 @@ class ModelContext(StrictModel):
 
 
 class ContextBuilder:
-    def __init__(self, max_bytes: int = 50_000) -> None:
+    def __init__(
+        self, max_bytes: int = 50_000, source_roots: tuple[str, ...] = ()
+    ) -> None:
         self.max_bytes = max_bytes
+        self.source_roots = source_roots
 
-    def build(self, *, task: str, completion_criteria: str, policy_summary: str, tools: tuple[dict[str, object], ...] = (), validator_summary: str = "", current_failure: str = "", source_snippets: tuple[str, ...] = (), observations: tuple[str, ...] = (), memories: tuple[str, ...] = ()) -> ModelContext:
-        fixed = ModelContext(task=task, completion_criteria=completion_criteria, policy_summary=policy_summary, tools=tools, validator_summary=validator_summary, current_failure=current_failure)
+    def build(self, *, task: str, completion_criteria: str, policy_summary: str, source_roots: tuple[str, ...] | None = None, tools: tuple[dict[str, object], ...] = (), validator_summary: str = "", current_failure: str = "", source_snippets: tuple[str, ...] = (), observations: tuple[str, ...] = (), memories: tuple[str, ...] = ()) -> ModelContext:
+        fixed = ModelContext(task=task, completion_criteria=completion_criteria, policy_summary=policy_summary, source_roots=self.source_roots if source_roots is None else source_roots, tools=tools, validator_summary=validator_summary, current_failure=current_failure)
         if len(fixed.model_dump_json().encode()) > self.max_bytes:
             raise ValueError("required_context_exceeds_budget")
         remaining = self.max_bytes - len(fixed.model_dump_json().encode())

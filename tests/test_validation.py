@@ -52,3 +52,26 @@ def test_validation_tool_error_and_success_gate_requires_all_results(tmp_path: P
     assert pipeline.success_gate_open(results) is True
     assert observation_from_validation("a1", results).category == "success"
     assert observation_from_validation("a1", []).category == "tool_error"
+
+
+def test_optional_validator_failure_does_not_close_required_success_gate(
+    tmp_path: Path, fake_runner
+) -> None:
+    fake_runner.queue(exit_code=0)
+    fake_runner.queue(exit_code=1, stderr="optional lint failed")
+    pipeline = ValidationPipeline(
+        fake_runner,
+        (
+            ValidatorConfig(validator_id="pytest", args=("-m", "pytest")),
+            ValidatorConfig(
+                validator_id="ruff",
+                args=("-m", "ruff", "check"),
+                required=False,
+            ),
+        ),
+    )
+
+    results = pipeline.run(ValidationStage.FINAL, tmp_path)
+
+    assert [result.status for result in results] == ["passed", "failed"]
+    assert pipeline.success_gate_open(results) is True

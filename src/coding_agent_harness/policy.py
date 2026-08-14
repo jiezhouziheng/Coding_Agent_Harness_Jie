@@ -250,6 +250,10 @@ class PolicyEngine:
         if any(_NETWORK_PATTERN.search(argument) for argument in args):
             reason = "network_install_denied" if _is_pip_install(program, args) else "network_argument_denied"
             return _decision(Decision.DENY, reason, fingerprint)
+        if action.timeout_seconds > context.budgets.command_timeout_seconds:
+            return _decision(
+                Decision.DENY, "command_timeout_exceeds_budget", fingerprint
+            )
         if _is_pip_install(program, args):
             if ("python", "-m", "pip", "install") not in context.command_prefixes:
                 return _decision(Decision.DENY, "project_command_restricted", fingerprint)
@@ -358,11 +362,13 @@ class PolicyGateway:
         store: _Store,
         audit_writer: object,
         approval_service: _ApprovalRequests | None = None,
+        context: PolicyContext | None = None,
     ) -> None:
         self.engine = engine
         self.store = store
         self.audit_writer = audit_writer
         self.approval_service = approval_service
+        self.context = context
 
     def authorize(
         self, session_id: str, step: int, action: Action, workspace: Path
@@ -431,8 +437,12 @@ class PolicyGateway:
         self, action: Action, workspace: Path
     ) -> tuple[Action, PolicyDecision]:
         try:
-            normalized = normalize_action(action, WorkspaceGuard(workspace))
-            decision = self.engine.evaluate(normalized, PolicyContext.for_workspace(workspace))
+            guard = WorkspaceGuard(workspace)
+            normalized = normalize_action(action, guard)
+            context = self.context or PolicyContext.for_workspace(workspace)
+            if context.workspace != guard.root:
+                raise SecurityViolation("policy context workspace mismatch")
+            decision = self.engine.evaluate(normalized, context)
         except SecurityViolation:
             fingerprint = action_fingerprint(action)
             return _rejected_action(action), _decision(

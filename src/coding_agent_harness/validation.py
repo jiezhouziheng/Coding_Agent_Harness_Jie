@@ -15,9 +15,15 @@ class ValidationStage(StrEnum):
 
 
 class ValidationPipeline:
-    def __init__(self, runner: Any, validators: tuple[ValidatorConfig, ...]) -> None:
+    def __init__(
+        self,
+        runner: Any,
+        validators: tuple[ValidatorConfig, ...],
+        command_timeout_seconds: int = 120,
+    ) -> None:
         self.runner = runner
         self.validators = validators
+        self.command_timeout_seconds = command_timeout_seconds
 
     @classmethod
     def default(cls, runner: Any) -> ValidationPipeline:
@@ -28,7 +34,12 @@ class ValidationPipeline:
         for spec in self.validators:
             if stage.value not in spec.stages:
                 continue
-            command = RunCommandAction(program=spec.program, args=spec.args, cwd=".")
+            command = RunCommandAction(
+                program=spec.program,
+                args=spec.args,
+                cwd=".",
+                timeout_seconds=self.command_timeout_seconds,
+            )
             try:
                 raw = self.runner.run(command, workspace=workspace)
             except (OSError, RuntimeError, ValueError) as error:
@@ -41,7 +52,21 @@ class ValidationPipeline:
         return results
 
     def success_gate_open(self, results: list[ValidationResult]) -> bool:
-        return bool(results) and all(item.status == "passed" for item in results)
+        if not results or any(item.stage != results[0].stage for item in results):
+            return False
+        required_ids = {
+            spec.validator_id
+            for spec in self.validators
+            if spec.required and results[0].stage in spec.stages
+        }
+        required_results = [
+            item for item in results if item.validator_id in required_ids
+        ]
+        return (
+            bool(required_ids)
+            and {item.validator_id for item in required_results} == required_ids
+            and all(item.status == "passed" for item in required_results)
+        )
 
 
 def observation_from_validation(action_id: str, results: list[ValidationResult]) -> Observation:

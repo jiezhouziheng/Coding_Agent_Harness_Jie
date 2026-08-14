@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from pydantic import ValidationError
 
+from coding_agent_harness.config import BudgetConfig, ConfigError
 from coding_agent_harness.models import SessionStatus
 
 app = typer.Typer(no_args_is_help=True)
@@ -58,14 +60,59 @@ def run(
     workspace: Annotated[Path, typer.Option("--workspace")],
     task: Annotated[str, typer.Option("--task")],
     mock_script: Annotated[Path | None, typer.Option("--mock-script")] = None,
+    max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    max_llm_calls: Annotated[int | None, typer.Option("--max-llm-calls")] = None,
+    max_consecutive_failures: Annotated[
+        int | None, typer.Option("--max-consecutive-failures")
+    ] = None,
+    max_repeated_action: Annotated[
+        int | None, typer.Option("--max-repeated-action")
+    ] = None,
+    command_timeout_seconds: Annotated[
+        int | None, typer.Option("--command-timeout-seconds")
+    ] = None,
+    session_timeout_minutes: Annotated[
+        int | None, typer.Option("--session-timeout-minutes")
+    ] = None,
+    max_observation_bytes: Annotated[
+        int | None, typer.Option("--max-observation-bytes")
+    ] = None,
 ) -> None:
     """Run the coding agent harness."""
-    service = _services(ctx)
-    if hasattr(service, "run"):
-        result = service.run(workspace=workspace, task=task, mock_script=mock_script)
-        _show(result)
-        status = getattr(result, "status", SessionStatus.PAUSED_INTERNAL_ERROR)
-        raise typer.Exit(code=exit_code_for_status(status))
+    limits = {
+        name: value
+        for name, value in {
+            "max_steps": max_steps,
+            "max_llm_calls": max_llm_calls,
+            "max_consecutive_failures": max_consecutive_failures,
+            "max_repeated_action": max_repeated_action,
+            "command_timeout_seconds": command_timeout_seconds,
+            "session_timeout_minutes": session_timeout_minutes,
+            "max_observation_bytes": max_observation_bytes,
+        }.items()
+        if value is not None
+    }
+    try:
+        cli_budget = BudgetConfig(**limits) if limits else None
+        service = _services(ctx)
+        if hasattr(service, "run"):
+            result = service.run(
+                workspace=workspace,
+                task=task,
+                mock_script=mock_script,
+                cli_budget=cli_budget,
+            )
+            _show(result)
+            status = getattr(result, "status", SessionStatus.PAUSED_INTERNAL_ERROR)
+            raise typer.Exit(code=exit_code_for_status(status))
+    except typer.Exit:
+        raise
+    except ValidationError:
+        typer.echo("invalid_budget_config", err=True)
+        raise typer.Exit(code=40) from None
+    except (ConfigError, ValueError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=40) from None
     typer.echo(f"session: pending ({workspace}) task={task}")
     raise typer.Exit(code=20)
 

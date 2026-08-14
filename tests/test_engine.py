@@ -276,3 +276,32 @@ def test_budget_limit_pauses_before_next_llm_call(engine_dependencies):
 
     result = HarnessEngine(llm=llm, context_builder=None, **deps).run("session-1")
     assert result.status is SessionStatus.PAUSED_LIMIT_REACHED
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        SessionStatus.PAUSED_APPROVAL,
+        SessionStatus.PAUSED_LIMIT_REACHED,
+        SessionStatus.PAUSED_PROTOCOL_ERROR,
+        SessionStatus.PAUSED_WORKSPACE_DRIFT,
+        SessionStatus.PAUSED_INTERNAL_ERROR,
+        SessionStatus.SUCCEEDED,
+        SessionStatus.NEEDS_USER_DECISION,
+        SessionStatus.CHANGES_KEPT,
+        SessionStatus.ROLLED_BACK,
+    ],
+)
+def test_engine_rejects_non_runnable_session_before_llm_or_tool_calls(
+    engine_dependencies, status: SessionStatus
+) -> None:
+    deps = engine_dependencies
+    deps["store"].session.status = status
+    llm = ScriptedLLM(FinishAction(summary="must not run"))
+    from coding_agent_harness.engine import HarnessEngine
+
+    with pytest.raises(ValueError, match="session_not_runnable"):
+        HarnessEngine(llm=llm, context_builder=None, **deps).run("session-1")
+
+    assert llm.contexts == []
+    assert deps["dispatcher"].call_count == 0

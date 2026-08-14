@@ -67,8 +67,18 @@ class HarnessEngine:
     def _context(self, session_id: str) -> Any:
         return self.context_builder.from_store(self.store, session_id)
 
+    def continue_approved(self, session_id: str, grant: Any) -> SessionResult:
+        """Execute a consumed approval before returning to the decision loop."""
+        if self.store.get_session(session_id).status is not SessionStatus.PAUSED_APPROVAL:
+            raise ValueError("session_not_paused_for_approval")
+        self.store.transition_session(session_id, SessionStatus.RUNNING)
+        result = self._execute_grant(session_id, grant, self._tracker(session_id))
+        return result if result is not None else self.run(session_id)
+
     def run(self, session_id: str) -> SessionResult:
         session = self.store.get_session(session_id)
+        if session.status not in {SessionStatus.CREATED, SessionStatus.RUNNING}:
+            raise ValueError("session_not_runnable")
         if session.status is SessionStatus.CREATED:
             baseline = self.validators.run(ValidationStage.BASELINE, self.workspace)
             self.store.record_validations(session_id, baseline)
@@ -181,22 +191,36 @@ class HarnessEngine:
                 return self._pause(
                     session_id, SessionStatus.PAUSED_INTERNAL_ERROR, "missing_authorization_grant"
                 )
-            try:
-                observation = self.dispatcher.execute(resolution.grant)
-            except (OSError, RuntimeError, TypeError, ValueError) as error:
-                summary = redact_text(str(error))[:400]
-                self.store.record_observation(
-                    session_id,
-                    Observation(category="tool_error", summary="tool_execution_failed", evidence=summary),
-                )
-                return self._pause(session_id, SessionStatus.NEEDS_USER_DECISION, "tool_execution_failed")
-            self.store.record_observation(session_id, observation)
-            if resolution.action.tool in {"replace_in_file", "create_file", "delete_file"}:
-                fast = self.validators.run(ValidationStage.FAST, self.workspace)
-                self.store.record_validations(session_id, fast)
-                passed = self.validators.success_gate_open(fast)
-                tracker.record_validation(passed)
-                self.store.save_budget_tracker(session_id, tracker)
-                self.store.record_observation(
-                    session_id, observation_from_validation(resolution.action_id, fast)
-                )
+            result = self._execute_grant(session_id, resolution.grant, tracker)
+            if result is not None:
+                return result
+
+    def _execute_grant(
+        self, session_id: str, grant: Any, tracker: BudgetTracker
+    ) -> SessionResult | None:
+        try:
+            observation = self.dispatcher.execute(grant)
+        except (OSError, RuntimeError, TypeError, ValueError) as error:
+            summary = redact_text(str(error))[:400]
+            self.store.record_observation(
+                session_id,
+                Observation(
+                    category="tool_error",
+                    summary="tool_execution_failed",
+                    evidence=summary,
+                ),
+            )
+            return self._pause(
+                session_id, SessionStatus.NEEDS_USER_DECISION, "tool_execution_failed"
+            )
+        self.store.record_observation(session_id, observation)
+        if grant.action.tool in {"replace_in_file", "create_file", "delete_file"}:
+            fast = self.validators.run(ValidationStage.FAST, self.workspace)
+            self.store.record_validations(session_id, fast)
+            passed = self.validators.success_gate_open(fast)
+            tracker.record_validation(passed)
+            self.store.save_budget_tracker(session_id, tracker)
+            self.store.record_observation(
+                session_id, observation_from_validation(grant.action_id, fast)
+            )
+        return None

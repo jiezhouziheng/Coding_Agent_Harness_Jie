@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from coding_agent_harness.config import BudgetConfig
 from coding_agent_harness.models import Decision, parse_action
 from coding_agent_harness.policy import (
     AuthorizationGrant,
@@ -211,9 +212,28 @@ def test_project_command_prefixes_can_only_narrow_builtin_set(workspace: Path) -
     with pytest.raises(ValueError, match="command_prefix_not_builtin"):
         PolicyContext(
             workspace=workspace,
-            budgets=__import__("coding_agent_harness.config", fromlist=["BudgetConfig"]).BudgetConfig(),
+            budgets=BudgetConfig(),
             command_prefixes=frozenset({("python", "-c")}),
         )
+
+
+def test_command_timeout_cannot_exceed_session_budget(workspace: Path) -> None:
+    decision = PolicyEngine().evaluate(
+        parse_action(
+            {
+                "tool": "run_command",
+                "program": "python",
+                "args": ["-m", "pytest", "-q"],
+                "timeout_seconds": 31,
+            }
+        ),
+        PolicyContext.for_workspace(
+            workspace, budgets=BudgetConfig(command_timeout_seconds=30)
+        ),
+    )
+
+    assert decision.decision is Decision.DENY
+    assert decision.reason_code == "command_timeout_exceeds_budget"
 
 
 def test_governance_models_are_strict_frozen_and_validate_resolution_shape() -> None:
