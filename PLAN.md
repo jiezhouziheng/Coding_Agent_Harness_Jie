@@ -3629,12 +3629,12 @@ PR-04 阶段状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已
 `feature/pr05-final-hardening`，以新的 PR 保留课程工作流证据，而不是直接推送尚未验证的本地
 `main`。本轮不增加产品功能，只关闭治理与运行入口缺口。
 
-- [x] **设计与计划**：`1593716`，记录审批证据闭合、恢复状态门禁和工作区锁接入方案。
-- [x] **授权绑定**：`1f04258`。跨会话审批复用真实 RED 为 1 failed；Action/Decision 错绑 RED
+- [x] **设计与计划**：`ab221fe`，记录审批证据闭合、恢复状态门禁和工作区锁接入方案。
+- [x] **授权绑定**：`c36e96f`。跨会话审批复用真实 RED 为 1 failed；Action/Decision 错绑 RED
   为 2 failed；修复后 `tests/test_dispatcher.py` 为 8 passed。
-- [x] **恢复门禁**：`0a326a7`。终态/暂停状态组合 RED 为 16 failed、1 passed；修复后新增门禁
+- [x] **恢复门禁**：`fc95478`。终态/暂停状态组合 RED 为 16 failed、1 passed；修复后新增门禁
   为 17 passed，engine/recovery/integration 组合回归为 30 passed。
-- [x] **入口互斥**：`47132d8`。run/resume 锁生命周期 RED 为 2 failed；修复后为 2 passed，
+- [x] **入口互斥**：`646c07f`。run/resume 锁生命周期 RED 为 2 failed；修复后为 2 passed，
   application/recovery/integration/CLI 组合回归为 27 passed。
 - [x] **最终本地门禁**：Python 3.13.11 下 pytest 为 `393 passed, 3 skipped`，3 个 skip 仍只
   来自 Windows `WinError 1314` 符号链接权限；Ruff 全通过，strict mypy 对 23 个源码文件通过，

@@ -3,10 +3,10 @@
 ## 2026-08-14T19:10:00+08:00 - PR-05 - 最终治理加固
 
 - **授权与工作流**：负责人明确把最终代码、文档、Git、PR、合并和课程归档收尾交给 `codex-main`，要求在截止前尽快达到可直接打包状态。根据课程“每个 worktree 对应 PR”的要求，从本地最终提交建立隔离分支 `feature/pr05-final-hardening`；没有直接推送未验证的本地 main。
-- **设计与计划**：采用最小加固而非授权网关重构，设计和实施计划提交为 `1593716`。范围只含持久授权证据绑定、会话恢复状态门禁、真实入口工作区锁及交付材料同步。
-- **授权绑定 RED/GREEN**：真实 SQLite 双会话探针先证明会话 B 能复用会话 A 已消费审批并创建文件；独立 Action/Decision 错绑测试也先失败。修复后 Dispatcher 对所有 grant 校验持久 Action/Decision，对审批 grant 传入 approval/fingerprint/action/session/decision 完整绑定；定向结果 8 passed，提交 `1f04258`。
-- **恢复门禁 RED/GREEN**：终态和错误暂停状态组合先得到 16 failed、1 passed，证明旧路径会创建 Engine；直接 Engine 调用也会读取 LLM。SessionService 现只允许 CREATED、RUNNING、PAUSED_APPROVAL 进入恢复路径，Engine 只接受 CREATED/RUNNING；新增门禁 17 passed，相关回归 30 passed，提交 `0a326a7`。
-- **工作区锁 RED/GREEN**：run/resume 的锁生命周期测试先得到 2 failed；应用与恢复入口随后以 `try/finally` 获取和释放同一规范工作区锁，异常路径同样释放。新增测试 2 passed，相关 application/recovery/integration/CLI 回归 27 passed，提交 `47132d8`。
+- **设计与计划**：采用最小加固而非授权网关重构，设计和实施计划提交为 `ab221fe`。范围只含持久授权证据绑定、会话恢复状态门禁、真实入口工作区锁及交付材料同步。
+- **授权绑定 RED/GREEN**：真实 SQLite 双会话探针先证明会话 B 能复用会话 A 已消费审批并创建文件；独立 Action/Decision 错绑测试也先失败。修复后 Dispatcher 对所有 grant 校验持久 Action/Decision，对审批 grant 传入 approval/fingerprint/action/session/decision 完整绑定；定向结果 8 passed，提交 `c36e96f`。
+- **恢复门禁 RED/GREEN**：终态和错误暂停状态组合先得到 16 failed、1 passed，证明旧路径会创建 Engine；直接 Engine 调用也会读取 LLM。SessionService 现只允许 CREATED、RUNNING、PAUSED_APPROVAL 进入恢复路径，Engine 只接受 CREATED/RUNNING；新增门禁 17 passed，相关回归 30 passed，提交 `fc95478`。
+- **工作区锁 RED/GREEN**：run/resume 的锁生命周期测试先得到 2 failed；应用与恢复入口随后以 `try/finally` 获取和释放同一规范工作区锁，异常路径同样释放。新增测试 2 passed，相关 application/recovery/integration/CLI 回归 27 passed，提交 `646c07f`。
 - **反思与人工参与**：`REFLECTION.md` 由负责人根据本人真实选择、审阅和项目经历完成人工初稿，Codex 仅辅助整理、校对与润色；正文和所有交付说明保持该口径。PR-05 生产代码与自动测试由 `codex-main` 实现，负责人提供范围授权与反思初稿。
 - **最终本地门禁**：直接执行仓库 PowerShell 脚本先被系统 ExecutionPolicy 阻止；使用一次性 Bypass 后 pytest 又因系统默认临时目录 ACL 出现 `WinError 5`，并暴露 README/反思固定短语的 1 个真实失败。改用显式可写 basetemp 后得到 `392 passed, 3 skipped, 1 failed`，修正“人工初稿；随后由 Codex 辅助整理、校对与润色”的兼容表述后，fresh 全量为 `393 passed, 3 skipped`。Ruff 全通过，strict mypy 对 23 个源码文件通过，wheel/sdist 构建成功；3 个 skip 仍仅为 Windows `WinError 1314` 符号链接权限。
 - **凭据与差异扫描**：`git diff --check` 无输出；authoritative tracked-text scanner 精确输出 `tracked_text_matches=1`、`unexplained_or_real=0`，唯一命中仍为 PLAN 的 `provider.invalid/test-secret` 假 fixture；tracked 敏感路径为 0；全历史高置信度 secret/private-key pattern 为 0。
