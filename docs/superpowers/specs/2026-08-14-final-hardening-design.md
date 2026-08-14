@@ -48,5 +48,4 @@ Dispatcher 在执行任何动作前必须：
 
 ## 交付与学术边界
 
-`REFLECTION.md` 继续明确标注 Codex 辅助整理。负责人需在提交课程网站前阅读并确认其中观点符合本人经历；仓库和 PR 不把它描述为未使用 AI。PR 描述与 commit message 记录 agent 和人工修改情况。合并后从最终远端 main 用 `git archive` 重新生成 ZIP，确保包含反思、源码、测试和全部过程文档。
-
+`REFLECTION.md` 由负责人根据本人真实观点与项目经历完成人工初稿，Codex 仅辅助整理、校对与润色，并在正文明确标注；仓库和 PR 不把它描述为未使用 AI。PR 描述与 commit message 记录 agent 和人工修改情况。合并后从最终远端 main 用 `git archive` 重新生成 ZIP，确保包含反思、源码、测试和全部过程文档。

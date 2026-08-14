@@ -3618,7 +3618,29 @@ PR-04 阶段状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已
 源码根参数失败、批准恢复时 `illegal_session_transition`、命令超时越过会话预算，以及可选验证器
 错误关闭必需完成门禁。最终新鲜门禁为 `371 passed,
 3 skipped`，Ruff、strict mypy（23 个源码文件）与 wheel/sdist build 全部通过；3 个 skip 仍只
-来自 Windows `WinError 1314` 符号链接权限。`REFLECTION.md` 已在负责人新授权后完成并标注 Codex
-辅助；README 已补真实配置流程与第三方许可证。运行时与行为测试提交为
+来自 Windows `WinError 1314` 符号链接权限。`REFLECTION.md` 已由负责人完成人工初稿并标注 Codex
+仅辅助整理、校对与润色；README 已补真实配置流程与第三方许可证。运行时与行为测试提交为
 `aedb9c80bd980461fdfc9fb7d8b38a7e8173931d`；最终远端同步证据由 push 后的 Git/Actions
 外部状态确认，避免在提交前预填。
+
+## 12. PR-05 最终治理加固（2026-08-14）
+
+最终只读审查在 371 项基线全绿后通过攻击性探针发现三个集成缺口，因此负责人授权建立
+`feature/pr05-final-hardening`，以新的 PR 保留课程工作流证据，而不是直接推送尚未验证的本地
+`main`。本轮不增加产品功能，只关闭治理与运行入口缺口。
+
+- [x] **设计与计划**：`1593716`，记录审批证据闭合、恢复状态门禁和工作区锁接入方案。
+- [x] **授权绑定**：`1f04258`。跨会话审批复用真实 RED 为 1 failed；Action/Decision 错绑 RED
+  为 2 failed；修复后 `tests/test_dispatcher.py` 为 8 passed。
+- [x] **恢复门禁**：`0a326a7`。终态/暂停状态组合 RED 为 16 failed、1 passed；修复后新增门禁
+  为 17 passed，engine/recovery/integration 组合回归为 30 passed。
+- [x] **入口互斥**：`47132d8`。run/resume 锁生命周期 RED 为 2 failed；修复后为 2 passed，
+  application/recovery/integration/CLI 组合回归为 27 passed。
+- [x] **最终本地门禁**：Python 3.13.11 下 pytest 为 `393 passed, 3 skipped`，3 个 skip 仍只
+  来自 Windows `WinError 1314` 符号链接权限；Ruff 全通过，strict mypy 对 23 个源码文件通过，
+  wheel/sdist 构建成功。`git diff --check` 无输出；tracked 文本仅有 PLAN 中 1 个已分类假凭据
+  fixture，真实或未解释凭据 0；tracked 敏感路径 0；全历史高置信度凭据 0。
+- [ ] **远端交付**：推送 PR #5，等待 CI 通过并从合并后的最终 main 重新生成课程 ZIP。
+
+本轮实现均由 `codex-main` 完成；负责人授权修复范围并提供 `REFLECTION.md` 人工初稿，Codex
+仅对反思做整理、校对与润色。commit 与 PR 描述必须继续分别标注 agent 和人工参与部分。

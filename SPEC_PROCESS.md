@@ -361,3 +361,25 @@ Pages。公开 URL `https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/` �
 端到端 TDD 合同接通分层配置、凭据、验证器、上下文和审批恢复，同时补齐 README 配置/许可证、
 PLAN 复选框及带 AI 辅助声明的反思报告。该修订没有执行真实 LLM smoke test，也没有把离线 mock
 结果写成供应商效果证据。
+
+## 14. PR-05 最终治理加固
+
+post-delivery 代码完成后的 fresh 只读审查没有把“371 项全绿”直接等同于交付完成，而是从中央
+治理边界和真实入口重新构造攻击路径。探针证明：Dispatcher 只以 approval id 与动作指纹确认消费，
+未使用存储层已有的 action/session/decision 完整绑定；普通 resume 可让 `SUCCEEDED` 会话在非法
+状态转换报错前继续执行；工作区锁只存在于独立单元测试，没有进入 `run` 和 `resume`。
+
+负责人授权快速完成全部收尾后，采用最小加固 PR，而没有在截止前重构整个授权网关。每项先写回归
+测试并观察旧实现真实失败，再做生产修复：Dispatcher 校验持久化 Action、PolicyDecision、会话、
+指纹与审批六元绑定；SessionService 对不可普通恢复状态原样返回，Engine 对直接绕过 fail closed；
+HarnessApplication 与恢复入口用 `try/finally` 持有并释放同一工作区锁。设计和逐步计划保存在
+`docs/superpowers/`，根目录 PLAN 继续记录课程级提交与远端证据。
+
+反思报告由负责人根据本人真实选择与项目经历完成人工初稿，Codex 仅辅助整理、校对与润色，相关
+表述在正文、AGENT_LOG、commit 和 PR 描述中保持一致。没有把未执行的异构冷启动或真实 LLM
+试验写成已完成。
+
+本地最终门禁使用显式当前 worktree `PYTHONPATH` 与可写 pytest basetemp，结果为 `393 passed,
+3 skipped`；3 个 skip 仍仅为 Windows `WinError 1314` 符号链接权限。Ruff 全通过，strict mypy
+对 23 个源码文件通过，wheel 与 sdist 构建成功。默认系统 pytest 临时目录曾因 ACL 返回
+`WinError 5`，该环境错误与修正后的完整 GREEN 都保留在执行记录中，没有通过修改生产代码规避。

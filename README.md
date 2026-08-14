@@ -178,6 +178,8 @@ GitHub Pages: <https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/>
 
 策略、审批、文件操作和验证器共同构成 CLI 的治理边界；默认拒绝远程 Git、网络和未批准的写操作。pytest 以当前 OS 用户权限执行，项目没有额外的 OS sandbox 或容器隔离，因此运行真实任务前应使用专用项目目录和低权限账户。审计数据库、备份和私有报告只应留在本机应用数据目录。
 
+Dispatcher 在执行前把 grant 与持久化 Action、PolicyDecision、会话、动作指纹和已消费审批完整绑定；新会话运行和已有会话恢复都持有应用数据目录中的工作区锁。普通 `sessions resume` 只恢复 `CREATED`、`RUNNING` 和审批暂停状态，不会重新执行成功、待用户处置或其他错误暂停状态。
+
 ## 分发
 
 构建 wheel 和 sdist：
