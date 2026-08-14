@@ -33,9 +33,24 @@ class Dispatcher:
         if action_fingerprint(grant.action) != grant.fingerprint:
             raise DispatchError("grant_fingerprint_mismatch")
         decision = self.store.get_policy_decision(grant.policy_decision_id)
+        if decision.action_id != grant.action_id:
+            raise DispatchError("grant_decision_mismatch")
+        stored_action = self.store.get_action(grant.action_id)
+        if (
+            stored_action.session_id != grant.session_id
+            or stored_action.fingerprint != grant.fingerprint
+            or stored_action.action != grant.action
+        ):
+            raise DispatchError("grant_action_mismatch")
         if decision.decision.value == "DENY":
             raise DispatchError("denied_action_cannot_dispatch")
-        if decision.decision.value == "REQUIRE_APPROVAL" and not self.store.is_consumed_approval(grant.approval_id, grant.fingerprint):
+        if decision.decision.value == "REQUIRE_APPROVAL" and not self.store.is_consumed_approval(
+            grant.approval_id,
+            grant.fingerprint,
+            action_id=grant.action_id,
+            session_id=grant.session_id,
+            policy_decision_id=grant.policy_decision_id,
+        ):
             raise DispatchError("consumed_approval_required")
         action = grant.action
         try:
