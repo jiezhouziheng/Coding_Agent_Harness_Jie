@@ -4,10 +4,33 @@ from pathlib import Path
 
 import pytest
 
-from coding_agent_harness.application import create_control_application
+from coding_agent_harness.application import HarnessApplication, create_control_application
 from coding_agent_harness.config import BudgetConfig, ConfigError
 from coding_agent_harness.credentials import MemoryCredentialBackend
 from coding_agent_harness.llm import OpenAICompatibleClient, ScriptedMockLLM
+
+
+class TrackingLock:
+    def __init__(self) -> None:
+        self.released = False
+
+    def release(self) -> None:
+        self.released = True
+
+
+class TrackingSessions:
+    def __init__(self) -> None:
+        self.workspaces: list[Path] = []
+        self.lock = TrackingLock()
+
+    def acquire_workspace(self, workspace: Path) -> TrackingLock:
+        self.workspaces.append(workspace)
+        return self.lock
+
+
+class ExplodingEngineFactory:
+    def create(self, **_kwargs: object):
+        raise RuntimeError("engine_factory_failed")
 
 
 def test_engine_factory_wires_layered_config_and_keyring_client(
@@ -133,3 +156,25 @@ def test_project_source_root_escape_is_rejected_before_session_creation(
         assert service.store.list_sessions() == ()
     finally:
         service.store.close()
+
+
+def test_application_run_releases_workspace_lock_when_factory_fails(
+    workspace: Path,
+) -> None:
+    sessions = TrackingSessions()
+    service = HarnessApplication(
+        store=None,
+        sessions=sessions,  # type: ignore[arg-type]
+        approvals=None,
+        changes=None,
+        credentials=None,  # type: ignore[arg-type]
+        memory=None,  # type: ignore[arg-type]
+        reports=None,
+        engine_factory=ExplodingEngineFactory(),
+    )
+
+    with pytest.raises(RuntimeError, match="engine_factory_failed"):
+        service.run(workspace=workspace, task="fail after locking")
+
+    assert sessions.workspaces == [workspace]
+    assert sessions.lock.released is True

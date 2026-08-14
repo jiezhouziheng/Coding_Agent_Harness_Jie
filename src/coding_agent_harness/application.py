@@ -187,13 +187,17 @@ class HarnessApplication:
         selected_workspace = workspace or self.default_workspace
         if selected_workspace is None:
             raise ValueError("workspace_and_task_required")
-        session_id, engine = self.engine_factory.create(
-            workspace=selected_workspace,
-            task=task,
-            mock_script=mock_script,
-            cli_budget=cli_budget,
-        )
-        return engine.run(session_id)
+        lock = self.sessions.acquire_workspace(selected_workspace)
+        try:
+            session_id, engine = self.engine_factory.create(
+                workspace=selected_workspace,
+                task=task,
+                mock_script=mock_script,
+                cli_budget=cli_budget,
+            )
+            return engine.run(session_id)
+        finally:
+            lock.release()
 
 
 def create_control_application(

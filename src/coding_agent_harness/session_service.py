@@ -111,6 +111,14 @@ class SessionService:
         persisted = self.store.get_session(session_id)
         if persisted.status not in _RESUMABLE_SESSION_STATUSES:
             return persisted
+        project = self.store.get_project(persisted.project_id)
+        lock = self.acquire_workspace(Path(project.canonical_path))
+        try:
+            return self._resume_and_run_locked(session_id)
+        finally:
+            lock.release()
+
+    def _resume_and_run_locked(self, session_id: str) -> Any:
         session = self.resume(session_id)
         if session.status is SessionStatus.PAUSED_WORKSPACE_DRIFT:
             return session
