@@ -310,6 +310,10 @@ class StateStore:
         except (TypeError, ValueError, json.JSONDecodeError) as error:
             raise StorageError("corrupt_session") from error
 
+    def list_sessions(self) -> tuple[SessionRecord, ...]:
+        rows = self._execute("SELECT id FROM sessions ORDER BY created_at").fetchall()
+        return tuple(self.get_session(str(row["id"])) for row in rows)
+
     def transition_session(self, session_id: str, target: SessionStatus) -> SessionRecord:
         if not isinstance(target, SessionStatus):
             raise StorageError("illegal_session_transition")
@@ -671,6 +675,59 @@ class StateStore:
         except Exception as error:
             raise StorageError("corrupt_observation") from error
 
+    def query_safe_report_rows(self, session_id: str) -> dict[str, object]:
+        """Project persisted state into the report schema's explicit allowlist."""
+        session = self.get_session(session_id)
+        project = self.get_project(session.project_id)
+        action_rows = self._execute(
+            "SELECT id, tool, normalized_json FROM actions "
+            "WHERE session_id = ? ORDER BY step",
+            (session_id,),
+        ).fetchall()
+        actions: list[dict[str, object]] = []
+        approvals: list[dict[str, object]] = []
+        for row in action_rows:
+            action = self.get_action(str(row["id"]))
+            decision = self.get_policy_decision_for_action(action.id)
+            safe_action: dict[str, object] = {
+                "tool": action.action.tool,
+                "decision": decision.decision.value,
+                "reason_code": decision.reason_code,
+            }
+            if hasattr(action.action, "path"):
+                raw_path = str(action.action.path)
+                safe_action["path"] = _relative_report_path(raw_path, project.canonical_path)
+            actions.append(safe_action)
+            try:
+                approval = self.get_approval_for_action(action.id)
+            except StorageError as error:
+                if str(error) != "approval_not_found":
+                    raise
+                approval = None
+            if approval is not None:
+                approvals.append({"status": approval.status.value})
+        validations = [
+            {
+                "validator_id": result.validator_id,
+                "stage": result.stage,
+                "status": result.status,
+                "exit_code": result.exit_code,
+                "duration_ms": result.duration_ms,
+                "summary": _safe_summary(result.summary),
+            }
+            for result in self.list_validations(session_id)
+        ]
+        return {
+            "schema_version": "1.0",
+            "session_id": session_id,
+            "project": {"display_name": project.display_name},
+            "status": session.status.value,
+            "actions": tuple(actions),
+            "approvals": tuple(approvals),
+            "validations": tuple(validations),
+            "final_summary": "",
+        }
+
     def query_context_inputs(self, session_id: str, *, memory_limit: int = 5) -> dict[str, object]:
         """Return bounded, redaction-ready inputs for the model context."""
         session = self.get_session(session_id)
@@ -683,7 +740,7 @@ class StateStore:
             "policy_summary": "actions are evaluated by the governed policy gateway",
             "validator_summary": validations[-1].summary if validations else "",
             "current_failure": latest.summary if latest and latest.category != "success" else "",
-            "observations": (latest.summary,) if latest is not None else (),
+            "observations": ((f"{latest.category}: {latest.summary}",) if latest is not None else ()),
             "memories": tuple(memory.content for memory in memories),
         }
 
@@ -791,6 +848,22 @@ class StateStore:
 
 def _new_id() -> str:
     return uuid.uuid4().hex
+
+
+def _relative_report_path(raw_path: str, project_path: str) -> str:
+    try:
+        candidate = Path(raw_path)
+        root = Path(project_path).resolve(strict=False)
+        resolved = candidate.resolve(strict=False) if candidate.is_absolute() else candidate
+        if candidate.is_absolute():
+            return resolved.relative_to(root).as_posix()
+        return candidate.as_posix()
+    except (OSError, RuntimeError, ValueError):
+        return "<REDACTED_PATH>"
+
+
+def _safe_summary(_value: str) -> str:
+    return ""
 
 
 def _dump(value: object) -> str:

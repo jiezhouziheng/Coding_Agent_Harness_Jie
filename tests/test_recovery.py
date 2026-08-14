@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from coding_agent_harness.models import SessionStatus
+from coding_agent_harness.session_service import SessionService, WorkspaceBusy
+
+
+class FakeJournal:
+    def __init__(self) -> None:
+        self.drifted = False
+
+    def find_drift(self, session_id: str) -> bool:
+        return self.drifted
+
+
+class FakeApprovals:
+    def __init__(self) -> None:
+        self.invalidated: list[tuple[str, str]] = []
+
+    def invalidate_for_session(self, session_id: str, *, reason: str) -> None:
+        self.invalidated.append((session_id, reason))
+
+
+class FakeLock:
+    def __init__(self, path: Path, registry: set[str]) -> None:
+        self.path = path
+        self.registry = registry
+        self.held = False
+
+    def acquire(self) -> FakeLock:
+        key = str(self.path)
+        if key in self.registry:
+            raise WorkspaceBusy("workspace_busy")
+        self.registry.add(key)
+        self.held = True
+        return self
+
+    def release(self) -> None:
+        if self.held:
+            self.registry.discard(str(self.path))
+            self.held = False
+
+
+@pytest.fixture
+def recovery_session(store, workspace: Path) -> str:
+    project_id = store.upsert_project(workspace, "recovery")
+    return store.create_session(project_id, "recover session")
+
+
+def test_resume_reloads_pending_approval_after_restart(store, recovery_session: str) -> None:
+    service = SessionService(store, FakeJournal(), FakeApprovals(), lambda _: None)
+    store.transition_session(recovery_session, SessionStatus.RUNNING)
+    store.transition_session(recovery_session, SessionStatus.PAUSED_APPROVAL)
+
+    result = service.resume(recovery_session)
+
+    assert result.status is SessionStatus.PAUSED_APPROVAL
+
+
+def test_resume_invalidates_approval_on_workspace_drift(store, recovery_session: str) -> None:
+    journal = FakeJournal()
+    approvals = FakeApprovals()
+    service = SessionService(store, journal, approvals, lambda _: None)
+    store.transition_session(recovery_session, SessionStatus.RUNNING)
+    journal.drifted = True
+
+    result = service.resume(recovery_session)
+
+    assert result.status is SessionStatus.PAUSED_WORKSPACE_DRIFT
+    assert approvals.invalidated == [(recovery_session, "workspace_drift")]
+
+
+def test_second_writer_for_same_workspace_is_rejected(workspace: Path, tmp_path: Path) -> None:
+    registry: set[str] = set()
+    factory = lambda path: FakeLock(path, registry)
+    first_service = SessionService(None, None, None, factory)
+    second_service = SessionService(None, None, None, factory)
+
+    first = first_service.acquire_workspace(workspace, lock_root=tmp_path)
+    with pytest.raises(WorkspaceBusy):
+        second_service.acquire_workspace(workspace, lock_root=tmp_path)
+    first.release()

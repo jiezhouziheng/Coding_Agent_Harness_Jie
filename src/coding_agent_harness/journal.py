@@ -57,6 +57,33 @@ class ChangeJournal:
         except StorageError as error:
             raise JournalError("journal_finish_failed") from error
 
+    def find_drift(self, session_id: str) -> bool:
+        """Return whether any journaled target differs from its recorded result."""
+        try:
+            session = self.store.get_session(session_id)
+            project = self.store.get_project(session.project_id)
+            return self.find_drift_in(session_id, Path(project.canonical_path))
+        except (OSError, StorageError, RuntimeError, ValueError):
+            raise JournalError("journal_drift_check_failed") from None
+
+    def find_drift_in(self, session_id: str, workspace: Path) -> bool:
+        """Check every completed change against the current workspace bytes."""
+        from coding_agent_harness.security import WorkspaceGuard
+
+        try:
+            guard = WorkspaceGuard(workspace)
+            for record in self.store.list_changes(session_id):
+                target = guard.resolve(record.relative_path)
+                current = target.read_bytes() if target.exists() and target.is_file() else None
+                if record.after_digest == "missing":
+                    if current is not None:
+                        return True
+                elif record.after_digest is None or current is None or digest_bytes(current) != record.after_digest:
+                    return True
+            return False
+        except (OSError, StorageError, RuntimeError, ValueError):
+            raise JournalError("journal_drift_check_failed") from None
+
     def rollback(self, session_id: str, workspace: Path) -> None:
         from coding_agent_harness.file_tools import FileToolError, _atomic_write
         from coding_agent_harness.security import WorkspaceGuard
