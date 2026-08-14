@@ -3618,8 +3618,8 @@ PR-04 阶段状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已
 源码根参数失败、批准恢复时 `illegal_session_transition`、命令超时越过会话预算，以及可选验证器
 错误关闭必需完成门禁。最终新鲜门禁为 `371 passed,
 3 skipped`，Ruff、strict mypy（23 个源码文件）与 wheel/sdist build 全部通过；3 个 skip 仍只
-来自 Windows `WinError 1314` 符号链接权限。`REFLECTION.md` 已由负责人完成人工初稿并标注 Codex
-仅辅助整理、校对与润色；README 已补真实配置流程与第三方许可证。运行时与行为测试提交为
+来自 Windows `WinError 1314` 符号链接权限。`REFLECTION.md` 已由 Codex 根据负责人真实决策与项目
+证据起草并标注 AI 辅助，负责人需在课程提交前亲自核对和修改；README 已补真实配置流程与第三方许可证。运行时与行为测试提交为
 `aedb9c80bd980461fdfc9fb7d8b38a7e8173931d`；最终远端同步证据由 push 后的 Git/Actions
 外部状态确认，避免在提交前预填。
 
@@ -3642,5 +3642,5 @@ PR-04 阶段状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已
   fixture，真实或未解释凭据 0；tracked 敏感路径 0；全历史高置信度凭据 0。
 - [ ] **远端交付**：推送 PR #5，等待 CI 通过并从合并后的最终 main 重新生成课程 ZIP。
 
-本轮实现均由 `codex-main` 完成；负责人授权修复范围并提供 `REFLECTION.md` 人工初稿，Codex
-仅对反思做整理、校对与润色。commit 与 PR 描述必须继续分别标注 agent 和人工参与部分。
+本轮实现均由 `codex-main` 完成；负责人授权修复范围，并要求 Codex 根据全过程中的真实选择、审批
+和项目证据起草 `REFLECTION.md`。负责人需在课程提交前亲自核对和修改；commit 与 PR 描述必须继续分别标注 agent 和人工参与部分。

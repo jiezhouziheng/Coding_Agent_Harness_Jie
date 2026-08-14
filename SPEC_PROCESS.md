@@ -249,7 +249,7 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 - `SPEC_PROCESS.md`：已记录 brainstorming、计划与 fresh Codex 替代冷读审查；实现期间继续更新。
 - `PLAN.md`：已获负责人批准并按四个 PR 波次执行；Task 1-15、远端 CI/Pages 与课程 ZIP 合同均已关闭。
 - `AGENT_LOG.md`：已记录到 PR-04 合并后验收；PR、main CI、artifact、Pages 与外部 ZIP 证据均来自真实操作。
-- `REFLECTION.md`：PR04 阶段的用户版本未被触碰；2026-08-14 项目收尾时负责人另行明确授权后，已根据真实项目过程完成，并标注 Codex 辅助整理、校对与润色。
+- `REFLECTION.md`：PR04 阶段的用户版本未被触碰；2026-08-14 项目收尾时负责人另行明确授权 Codex 根据真实项目过程起草，并标注 Codex 辅助整理、校对与润色；负责人需在课程提交前亲自核对和修改。
 - 实现源码：Task 1-14 已完成；2026-08-14 本地 `verify.ps1`、治理演示、安全回归、扫描和 wheel 安装验证均通过。
 
 ### Task 15 本地交付验证
@@ -375,8 +375,8 @@ post-delivery 代码完成后的 fresh 只读审查没有把“371 项全绿”�
 HarnessApplication 与恢复入口用 `try/finally` 持有并释放同一工作区锁。设计和逐步计划保存在
 `docs/superpowers/`，根目录 PLAN 继续记录课程级提交与远端证据。
 
-反思报告由负责人根据本人真实选择与项目经历完成人工初稿，Codex 仅辅助整理、校对与润色，相关
-表述在正文、AGENT_LOG、commit 和 PR 描述中保持一致。没有把未执行的异构冷启动或真实 LLM
+反思报告由 Codex 根据负责人全过程中的真实选择、逐项审批与项目经历起草，并明确披露 Codex 辅助
+整理、校对与润色；负责人需在课程提交前亲自核对和修改。没有把未执行的异构冷启动或真实 LLM
 试验写成已完成。
 
 本地最终门禁使用显式当前 worktree `PYTHONPATH` 与可写 pytest basetemp，结果为 `393 passed,
