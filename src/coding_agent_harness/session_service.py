@@ -9,7 +9,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Self
 
-from coding_agent_harness.models import SessionStatus
+from coding_agent_harness.models import ApprovalStatus, Observation, SessionStatus
+from coding_agent_harness.policy import PendingAction
 
 
 def default_app_data_dir() -> Path:
@@ -103,6 +104,40 @@ class SessionService:
         if session.status is SessionStatus.PAUSED_WORKSPACE_DRIFT:
             return session
         if self.engine_factory is None:
+            return session
+        if session.status is SessionStatus.PAUSED_APPROVAL:
+            try:
+                approval = self.store.get_latest_approval_for_session(session_id)
+            except RuntimeError:
+                return session
+            if approval.status is ApprovalStatus.PENDING:
+                return session
+            stored_action = self.store.get_action(approval.action_id)
+            pending = PendingAction(
+                action_id=stored_action.id,
+                session_id=stored_action.session_id,
+                action=stored_action.action,
+                fingerprint=stored_action.fingerprint,
+            )
+            _, engine = self.engine_factory.create(session_id=session_id)
+            if approval.status is ApprovalStatus.APPROVED:
+                grant = self.approvals.consume(approval.id, pending, engine.workspace)
+                return engine.continue_approved(session_id, grant)
+            if approval.status in {
+                ApprovalStatus.DENIED,
+                ApprovalStatus.EXPIRED,
+                ApprovalStatus.INVALIDATED,
+            }:
+                self.store.transition_session(session_id, SessionStatus.RUNNING)
+                self.store.record_observation(
+                    session_id,
+                    Observation(
+                        action_id=stored_action.id,
+                        category="policy_blocked",
+                        summary=f"approval_{approval.status.value.casefold()}",
+                    ),
+                )
+                return engine.run(session_id)
             return session
         _, engine = self.engine_factory.create(session_id=session_id)
         return engine.run(session_id)

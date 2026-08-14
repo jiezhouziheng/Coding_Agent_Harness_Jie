@@ -580,6 +580,15 @@ class StateStore:
             ).fetchall()
         return tuple(self.get_approval(str(row["id"])) for row in rows)
 
+    def get_latest_approval_for_session(self, session_id: str) -> ApprovalRecord:
+        row = self._execute(
+            "SELECT id FROM approvals WHERE session_id = ? ORDER BY rowid DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            raise StorageError("approval_not_found")
+        return self.get_approval(str(row["id"]))
+
     def transition_approval(
         self,
         approval_id: str,

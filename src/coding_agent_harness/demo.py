@@ -103,7 +103,11 @@ def _approval_scene(root: Path, factory: EngineFactory) -> DemoScene:
     approval_id = resolution.approval_id
     app_data = factory.app_data
     factory.store.close()
-    reopened = create_control_application(app_data, credential_backend=MemoryCredentialBackend())
+    reopened = create_control_application(
+        app_data,
+        credential_backend=MemoryCredentialBackend(),
+        llm_factory=lambda: ScriptedMockLLM([]),
+    )
     reopened.approvals.approve(approval_id)
     _, reopened_engine = reopened.engine_factory.create(session_id=session_id)
     grant = reopened.approvals.consume(approval_id, pending, workspace)
@@ -145,8 +149,15 @@ def run_governance_demo(root: Path, *, factory: EngineFactory | None = None) -> 
     root.mkdir(parents=True, exist_ok=True)
     owned_app = None
     if factory is None:
-        owned_app = create_control_application(root / "demo-app", credential_backend=MemoryCredentialBackend())
+        owned_app = create_control_application(
+            root / "demo-app",
+            credential_backend=MemoryCredentialBackend(),
+            llm_factory=lambda: ScriptedMockLLM([]),
+        )
         factory = owned_app.engine_factory
+    original_factory = factory.llm_factory
+    if original_factory is None:
+        factory.llm_factory = lambda: ScriptedMockLLM([])
     try:
         return DemoReport(
             network_used=False,
@@ -154,5 +165,6 @@ def run_governance_demo(root: Path, *, factory: EngineFactory | None = None) -> 
             scenes=(_dangerous_action_scene(root, factory), _feedback_scene(root, factory), _approval_scene(root, factory)),
         )
     finally:
+        factory.llm_factory = original_factory
         if owned_app is not None:
             owned_app.store.close()

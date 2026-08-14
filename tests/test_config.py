@@ -11,9 +11,43 @@ from coding_agent_harness.config import (
     UserConfig,
     ValidatorConfig,
     load_project_config,
+    load_user_config,
     resolve_config,
     tighten_budgets,
 )
+
+
+def test_load_user_config_parses_trusted_provider_settings() -> None:
+    with TemporaryDirectory(dir=Path.cwd()) as directory:
+        config_path = Path(directory) / "config.toml"
+        config_path.write_text(
+            """provider_url = "https://provider.example/v1"
+model = "model-a"
+credential_profile = "course"
+[budgets]
+max_steps = 30
+""",
+            encoding="utf-8",
+        )
+
+        config = load_user_config(config_path)
+
+    assert config.provider_url == "https://provider.example/v1"
+    assert config.model == "model-a"
+    assert config.credential_profile == "course"
+    assert config.budgets.max_steps == 30
+
+
+def test_load_user_config_converts_missing_and_invalid_files_to_config_error() -> None:
+    with TemporaryDirectory(dir=Path.cwd()) as directory:
+        missing = Path(directory) / "missing.toml"
+        invalid = Path(directory) / "invalid.toml"
+        invalid.write_text("[broken", encoding="utf-8")
+
+        with pytest.raises(ConfigError, match="user_config_load_failed"):
+            load_user_config(missing)
+        with pytest.raises(ConfigError, match="user_config_load_failed"):
+            load_user_config(invalid)
 
 
 def test_budget_defaults_and_bounds_are_strict_and_frozen() -> None:

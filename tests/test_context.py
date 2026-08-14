@@ -19,3 +19,13 @@ def test_context_keeps_task_policy_and_failure_under_pressure() -> None:
 def test_required_context_over_budget_fails_closed() -> None:
     with pytest.raises(ValueError, match="required_context_exceeds_budget"):
         ContextBuilder(max_bytes=10).build(task="task", completion_criteria="criteria", policy_summary="policy")
+
+
+def test_configured_source_roots_are_included_in_model_context() -> None:
+    context = ContextBuilder(source_roots=("src", "tests")).build(
+        task="fix",
+        completion_criteria="tests pass",
+        policy_summary="governed",
+    )
+
+    assert context.source_roots == ("src", "tests")

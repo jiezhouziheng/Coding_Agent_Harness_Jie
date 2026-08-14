@@ -6,7 +6,7 @@ import tomllib
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from coding_agent_harness.models import StrictModel
 
@@ -97,6 +97,16 @@ def load_project_config(path: Path) -> ProjectConfig:
     except (OSError, tomllib.TOMLDecodeError) as error:
         raise ConfigError(f"could not load project config: {path}") from error
     return ProjectConfig.model_validate(payload)
+
+
+def load_user_config(path: Path) -> UserConfig:
+    """Load the trusted user configuration with a stable fail-closed error."""
+    try:
+        with path.open("rb") as file:
+            payload = tomllib.load(file)
+        return UserConfig.model_validate(payload)
+    except (OSError, tomllib.TOMLDecodeError, ValidationError):
+        raise ConfigError("user_config_load_failed") from None
 
 
 def resolve_config(
