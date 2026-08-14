@@ -1,6 +1,6 @@
 # Coding Agent Harness Jie - 规约形成过程
 
-> 状态：持续更新；brainstorming 与实施计划已完成；fresh Codex 替代冷读审查已完成
+> 状态：已完成；brainstorming、实施计划、四个 PR、合并后 CI/Pages 与最终交付验证均有真实证据
 >
 > 负责人：Jie
 >
@@ -247,8 +247,8 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 
 - `SPEC.md`：已根据全部批准设计写入中文，并于 2026-08-11 通过负责人审阅。
 - `SPEC_PROCESS.md`：已记录 brainstorming、计划与 fresh Codex 替代冷读审查；实现期间继续更新。
-- `PLAN.md`：已获负责人批准并按四个 PR 波次执行；Task 1-14 已有真实提交，Task 15 本地验收证据已回填。
-- `AGENT_LOG.md`：持续记录到 Task 15 本地验收；远端 CI/Pages/PR/ZIP 证据仍待真实操作后追加。
+- `PLAN.md`：已获负责人批准并按四个 PR 波次执行；Task 1-15、远端 CI/Pages 与课程 ZIP 合同均已关闭。
+- `AGENT_LOG.md`：已记录到 PR-04 合并后验收；PR、main CI、artifact、Pages 与外部 ZIP 证据均来自真实操作。
 - `REFLECTION.md`：负责人主工作区存在 staged 用户版本；PR04 未读取、未修改、未取消暂存、未提交。
 - 实现源码：Task 1-14 已完成；2026-08-14 本地 `verify.ps1`、治理演示、安全回归、扫描和 wheel 安装验证均通过。
 
@@ -277,7 +277,21 @@ sdist 精确散列是会被后续文档修改改变的自引用快照，SPEC 状
 `git grep` 作为 Run/Expected 合同，现已明确 supersede 旧命令并加入只读取 tracked 文本后缀、
 使用大小写敏感 `Select-String` 且自带假 fixture 分类断言的可复制 PowerShell scanner。该修复
 完成时保持等待规格再次复审；最终规格复审现已 `APPROVED`，质量复审同样为 `APPROVED`；两项最终复审均
-确认没有遗留 finding。远端 CI/Pages/PR 与 ZIP 状态不属于本地复审结论，继续保持未验证。
+确认没有遗留 finding。该段是 Task 15 本地阶段的历史快照；后续 PR-04 合并后证据记录如下。
+
+### PR-04 合并后交付验证
+
+PR #4 于 2026-08-14 合并到 `main`，merge commit 为
+`9bab6be9db3556dd7f2f4e542ef9a5ec82a0acb0`。该 commit 的 GitHub Actions CI run
+`31780633358` 与 Static WebUI run `31780633378` 均为 `success`；前者完成 pytest、Ruff、
+strict mypy、build 与 distribution artifact，后者完成静态报告测试、仅复制 WebUI 资源并部署
+Pages。公开 URL `https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/` 已在桌面与移动视口
+实际打开，只有静态 mock 报告，无表单、按钮、输入、控制 API、SQLite、WebSocket 或审批能力。
+
+课程 ZIP 使用 `git archive` 从最终已跟踪树生成；必需源码、测试、规格、过程文档、CI、脚本和
+静态 WebUI 均在，Git 元数据、凭据、本地状态、审计、备份、私有报告、缓存和构建产物均不在。
+精确 post-commit 文件名、大小与 SHA-256 记录在 PR #4 外部证据中，避免包含本段的归档对自身
+散列形成循环依赖。
 
 ### PLAN 生成与自审
 

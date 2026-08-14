@@ -202,8 +202,8 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 11 | 持久恢复、漂移处理与 CLI | PR-03 | P0 | 10 | 已合并 | `8c6d035` |
 | 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 已合并 | `54f74a6` |
 | 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 已合并 | `a90d95a` |
-| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | `79fb0cd89849cafe003a991542343ea9bfee1812` |
-| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；final head 的 push/PR `unit-test` 与 artifacts PASS；Pages 合并后核验和 ZIP 待主控关闭 | `bc1af8f8795ab79da1a34060efe7ccb763a05115`；remediation `77acec3c1f651f2df6dbcd651913f335b5181e37`、`9fb7da80a230ebbc8a31affaa493a21bd8b681b2` |
+| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成并合并；规格/质量审查 APPROVED | `79fb0cd89849cafe003a991542343ea9bfee1812` |
+| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 已完成并合并；本地/远端 CI、artifact、Pages、ZIP 与两阶段复审全部 PASS | `bc1af8f8795ab79da1a34060efe7ccb763a05115`；remediation `77acec3c1f651f2df6dbcd651913f335b5181e37`、`9fb7da80a230ebbc8a31affaa493a21bd8b681b2`；remote closeout `f8d463d6270bc1a5006bd21c4960b0bc125849f6` |
 
 ## 6. 替代冷启动审查 - 已执行
 
@@ -3396,7 +3396,7 @@ Expected: wheel 安装成功，三幕演示全部 PASS。验证后仅在确认 `
 路径位于该 venv 的 `Lib/site-packages`、版本为 `0.1.0`、四个资源存在，安装后的
 `cah.exe demo governance` 三幕 PASS。精确临时 venv 经 TEMP 子路径校验后已删除。
 
-- [ ] **Step 5：确认远端 CI/Pages 与 PR 证据**
+- [x] **Step 5：确认远端 CI/Pages 与 PR 证据**
 
 检查最后一次 GitHub Actions `unit-test` 为 pass，构建 artifact 可下载；Pages URL 可公开打开 mock 报告；页面无控制 API。把 run URL、Pages URL、PR、执行智能体、人工修改和最终 commit 写入 `AGENT_LOG.md`，不得用本地结果冒充远端证据。
 
@@ -3485,7 +3485,22 @@ HTTP 404。Pages workflow 只允许 `main`，而 PR 尚未 merge，因此 pre-me
 XMLHttpRequest、WebSocket、EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、按钮或事件
 控制通道，唯一 `fetch` 为同目录 `./mock-report.json`。
 
-- [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-17 已关闭；AC-15 Pages 合并后待核验）**
+2026-08-14 合并后最终证据：PR #4 已合并，merge commit 与远端 `main` 均为
+`9bab6be9db3556dd7f2f4e542ef9a5ec82a0acb0`。该 commit 的 CI run
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31780633358` 为 success，
+`unit-test` job `94705426772` 的安装、pytest、Ruff、strict mypy、build 与 upload 全部 success；
+`python-distributions` artifact `9211571730` 未过期。Static WebUI run
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31780633378` 为 success，
+deploy job `94705427050` 完成静态报告测试、准备/上传纯静态资源和 Pages 部署；deployment
+`5902399811` 对应 `github-pages`。真实 URL
+`https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/` 已公开返回报告。
+
+浏览器实际核验：1280x720 与 390x844 两种视口均无横向溢出或元素重叠；DOM 中按钮、表单、
+输入框、可编辑区和链接均为 0，唯一脚本/样式为同源 `app.js`/`styles.css`，页面只展示
+`demo-session` mock 报告。结合公开静态资源扫描，控制 API、SQLite、WebSocket、Keyring 和审批
+操作能力均为 0；唯一数据读取仍是同目录 `./mock-report.json`。因此 AC-15 远端部分关闭为 PASS。
+
+- [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-01 至 AC-18 全部关闭）**
 
 在下方 AC 映射表逐项附测试/命令证据；更新冷启动发现、修订 diff、各 task commit；只有全部 P0 和六维最低实现通过才把 SPEC 状态改为“已实现”。`REFLECTION.md` 只记录真实经历，不虚构个人感受。
 
@@ -3498,7 +3513,7 @@ Run/Expected 合同，本轮已明确 supersede 旧命令并加入上述可复�
 等待规格再次复审，未提前写成 APPROVED；最终规格复审现已 `APPROVED`，质量复审同样为
 `APPROVED`；两项最终复审均确认无遗留 finding。
 
-- [ ] **Step 7：生成不覆盖旧文件的课程 ZIP**
+- [x] **Step 7：生成不覆盖旧文件的课程 ZIP**
 
 ```powershell
 $archive = Resolve-Path .. | ForEach-Object { Join-Path $_ "Coding_Agent_Harness_Jie-2026-08-13.zip" }
@@ -3513,10 +3528,13 @@ PR04 `HEAD`。本任务不得复制、提交、取消暂存或用 PR04 版本覆
 生成的 PR04 ZIP 应如实记录缺少该文件，而不能为满足旧清单将用户版本带入分支。只有负责人提供
 真实反思内容并再次明确授权后，才可改变这个例外。
 
-当前状态：ZIP 必须在本次 pre-merge 证据 closeout commit 之后，由主控针对最终 `HEAD` 使用
-`git archive` 生成并作为外部证据核验。此时尚未生成，因此不预填路径、SHA-256 或完成状态。
+完成证据：pre-merge closeout `f8d463d6270bc1a5006bd21c4960b0bc125849f6` 已用 `git archive`
+生成不覆盖旧文件的 ZIP，71 个条目中必需源码/测试/规格/CI/静态 WebUI 全部存在，禁止路径 0，
+且受保护的未跟踪 `REFLECTION.md` 未被复制。合并后文档 closeout commit 形成后，主控从最终
+`origin/main` 再生成同样经过清单与敏感路径核验的课程 ZIP；精确文件名、大小与 SHA-256 只记录
+在 PR #4 外部交付证据中，避免 ZIP 内文档记录自身散列导致不可复现的循环依赖。
 
-- [x] **Step 8：完成本地 Task 15 提交（远端分支收尾仍待 Step 5/7）**
+- [x] **Step 8：完成 Task 15 提交、PR-04 合并与远端收尾**
 
 ```powershell
 git add PLAN.md AGENT_LOG.md SPEC.md SPEC_PROCESS.md
@@ -3552,7 +3570,7 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 | AC-12 | 8 | `tests/test_memory.py` 7 项候选、证据激活、过滤和最多 5 条检索通过 | PASS |
 | AC-13 | 3,5 | `tests/test_config.py` 12 项分层收紧与 policy 项目命令收紧测试通过 | PASS |
 | AC-14 | 9,11 | 凭据生命周期 2 项和 CLI 不回显测试通过；tracked 文本扫描仅命中 `PLAN.md:2283` 的 `provider.invalid`/`test-secret` 假 fixture，真实或未解释凭据 0 命中 | PASS |
-| AC-15 | 12 | `tests/test_reporting.py` 3 项通过；主动控制通道扫描 0 命中，仅相对读取 mock JSON | 本地 PASS；Pages URL 待远端核验 |
+| AC-15 | 12,15 | `tests/test_reporting.py` 3 项通过；Pages run `31780633378` success；桌面/移动 DOM 与视觉核验无交互控件、溢出或重叠，主动控制通道 0，唯一相对读取 mock JSON | PASS |
 | AC-16 | 13 | 直接运行 `cah demo governance`，三幕均 `passed=true`、exit code 0 | PASS |
 | AC-17 | 14,15 | fresh 本地门禁通过；final head 的 pull_request run `31776061768` 与 push run `31776059409` 均为 success，两个 `unit-test` 完成 pytest/Ruff/strict mypy/build/upload | PASS |
 | AC-18 | 14,15 | wheel/sdist 资源核验；TEMP venv 离线安装 wheel、site-packages 导入断言和安装后 demo 通过 | PASS |
@@ -3585,4 +3603,4 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：Task 1-14 已有真实提交；Task 15 本地验收、两阶段最终复审和两轮 CI remediation 已完成，final code head 为 `9fb7da80a230ebbc8a31affaa493a21bd8b681b2`。该 head 的 push 与 pull_request `unit-test`、build 和 artifacts 均有真实 success 证据，AC-17 已关闭。本次远端证据增量的独立规格审查与质量审查均为 `APPROVED`，无遗留 finding。Pages 已由主控在仓库设置中启用 workflow 模式且强制 HTTPS，但 main-only 工作流在 PR 未合并前尚未部署，真实 URL 当前 404；AC-15 仍为本地 PASS、Pages 合并后待核验。课程 ZIP 必须在本次 closeout commit 后针对最终 HEAD 生成，当前仍为外部证据 pending。
+当前状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已合并为 `9bab6be9db3556dd7f2f4e542ef9a5ec82a0acb0`。该 merge commit 的 main CI、distribution artifact 与 Static WebUI/Pages workflow 均为 success，公开 Pages 已完成桌面/移动只读核验，AC-01 至 AC-18 和六维最低机制全部关闭。课程 ZIP 使用 `git archive` 从最终跟踪树生成并在外部记录精确散列；受保护的主工作区 `REFLECTION.md` 与 `tests/test_file_tools.py` 用户改动未进入任何项目提交。

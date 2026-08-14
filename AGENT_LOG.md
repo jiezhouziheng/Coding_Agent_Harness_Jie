@@ -341,3 +341,13 @@
 - **ZIP 与 closeout 边界**：课程 ZIP 必须在本条 pre-merge 证据形成 closeout commit 后，由主控对最终 `HEAD` 使用 `git archive` 生成并在外部核验。当前没有 ZIP 路径、hash 或内容完成证据，保持 pending；不得预填。
 - **本条范围与人工修改**：仅更新 `PLAN.md` 与 `AGENT_LOG.md` 的真实远端/当前状态；人工代码修改为无。未读取 PDF、`REFLECTION.md`、真实 Keyring、真实 API Key 或真实 LLM；未改动旧 worktree。
 - **远端证据增量复审**：独立规格审查与质量审查均为 `APPROVED`，无遗留 finding；复审未改变 Pages 合并后核验或课程 ZIP 在本次 closeout commit 后生成的 pending 边界。
+
+## 2026-08-14T15:53:59+08:00 - PROJECT-POSTMERGE-CLOSEOUT - PR-04 合并、main CI、Pages 与课程交付
+
+- **合并证据**：PR #4 `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/4` 已于 `2026-08-14T07:37:14Z` 合并；merge commit 与远端 `main` 均为 `9bab6be9db3556dd7f2f4e542ef9a5ec82a0acb0`，PR head 为 `f8d463d6270bc1a5006bd21c4960b0bc125849f6`。本条由主控 `root` 在隔离 PR-04 worktree 的临时 `chore/postmerge-closeout` 分支形成，人工修改：无。
+- **main CI**：run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31780633358` 为 `success`；`unit-test` job `94705426772` 的 Python 3.13 setup、安装 `.[dev]`、pytest、Ruff、strict mypy、build 和 artifact upload 全部 success。`python-distributions` artifact `9211571730`、size `228967`、`expired=false`。
+- **Pages 部署**：Static WebUI run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31780633378` 为 `success`；deploy job `94705427050` 的静态报告测试、资源准备、Pages artifact `9211558683` 上传和部署全部 success，deployment ID 为 `5902399811`。Pages 使用 `build_type=workflow`、source branch `main`、强制 HTTPS，真实 URL 为 `https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/`。
+- **公开页面人工核验**：浏览器在 1280x720 与 390x844 视口实际加载 `Harness Session Report`；均无横向溢出或元素重叠。DOM 中按钮、表单、输入、可编辑区和链接为 0，无 inline event handler；只加载同源 `app.js`、`styles.css` 并展示 `demo-session` mock 报告。公开静态资源与 DOM 共同确认无控制 API、SQLite、WebSocket、Keyring、凭据录入或审批执行能力，唯一数据读取为 `./mock-report.json`；AC-15 关闭为 PASS。
+- **closeout RED/GREEN**：合并树基线 package/reporting 为 `22 passed`。文档修订后的首次全量门禁得到 `1 failed, 356 passed, 3 skipped`；唯一失败是 README 更新时丢失 `tests/test_package.py` 要求的“CI 配置目标”合同短语。最小修复保留该短语并在同一句补充 GitHub 已真实验证、GitLab 未宣称执行；随后先运行定向失败测试取 GREEN，再重新执行完整门禁。
+- **交付 ZIP 边界**：pre-merge `f8d463d` ZIP 已真实生成并核验为 71 个条目、禁止敏感路径 0；本次 post-merge 文档提交后再从最终 `origin/main` 使用 `git archive` 生成不覆盖旧文件的课程 ZIP。其精确文件名、大小与 SHA-256 将记录到 PR #4 外部证据，避免包含本日志的 ZIP 对自身散列形成循环依赖。受保护的未跟踪 `REFLECTION.md` 不会被复制到归档。
+- **保护与限制**：未读取 PDF、真实 Keyring、真实 API Key 或真实 LLM；未删除或改写 PR-01/02/03/04 分支与既有 worktree；主仓库 staged `REFLECTION.md` 和 modified `tests/test_file_tools.py` 保持原样。生产模型 factory/config wiring 仍是 README 已公开的产品限制，不属于课程最低交付缺口。

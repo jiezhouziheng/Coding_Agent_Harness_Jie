@@ -106,7 +106,9 @@ scripts/verify.sh           Linux/macOS shell 质量门禁
 
 `src/coding_agent_harness/web` 是可公开发布的静态会话报告预览，浏览器读取同目录的 `mock-report.json`。Pages 工作流先运行离线报告测试，再只复制这一目录并部署静态文件，不启动 Harness 后端、不执行 CLI、不连接 SQLite、不开放 WebSocket，也不提供审批或控制 API。生产 Pages 只允许 `main` push 或人工 dispatch 部署；功能分支和 PR 不覆盖生产站点。静态页面与 `cah` CLI 是两个明确边界：页面只展示脚本化 mock 数据，真实会话仍由本机 CLI 管理。
 
-Repository/Pages URL placeholder: `<由负责人替换为真实仓库或 GitHub Pages URL>`。
+Repository: <https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie>
+
+GitHub Pages: <https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/>
 
 ## 安全边界
 
@@ -127,6 +129,6 @@ python -m build --no-isolation
 - `cah run` 当前默认使用空 `ScriptedMockLLM` 并以 `script_exhausted` 暂停；生产 OpenAI-compatible factory/config wiring 尚未实现，不能据此声称真实模型已运行。
 - Keyring 后端由操作系统提供，远程 CI 只运行离线测试，不读取个人凭据。
 - 静态 WebUI 只展示固定 mock 报告，不是实时控制台，也不能审批、执行命令或访问本地数据库。
-- Windows Python 3.13 是主要开发平台；Linux 3.13 是 GitHub/GitLab 的 CI 配置目标，需由远端运行后补充证据，本地文档不宣称 CI 已执行。
-- Pages URL、仓库地址和远程 CI/Pages 运行结果必须由负责人以真实外部证据补充，本文不虚构远程状态。
+- Windows Python 3.13 是主要开发平台；Linux 3.13 是 GitHub/GitLab 的 CI 配置目标，其中 GitHub Actions 的 Python 3.13 `unit-test` 已真实通过。GitLab 使用同一命令合同，但本项目未声明已在 GitLab runner 上执行。
+- 真实 PR、CI、artifact、Pages 和课程 ZIP 证据记录在 `PLAN.md`、`AGENT_LOG.md` 与已合并的 PR #4 中；精确 ZIP 散列保留在外部交付证据中以避免文档自引用改变归档散列。
 - PR 合并前不会由功能分支产生新的生产 Pages 站点；这项生产安全约束优先于预合并在线预览。
