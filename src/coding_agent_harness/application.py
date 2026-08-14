@@ -81,6 +81,7 @@ class HarnessApplication:
     memory: MemoryService
     reports: Any
     engine_factory: Any
+    demo: Any = None
     default_workspace: Path | None = None
 
     def run(self, *, task: str, workspace: Path | None = None, mock_script: Path | None = None) -> Any:
@@ -106,6 +107,7 @@ def create_control_application(
     audit = AuditWriter(app_data / "audit" / "events.jsonl")
     credentials = CredentialService(credential_backend or KeyringCredentialBackend())
     engine_factory = EngineFactory(store, audit, credentials, llm_factory=llm_factory, clock=clock, app_data=app_data)
+    from coding_agent_harness.demo import DemoFacade
     from coding_agent_harness.reporting import ReportExporter
     sessions = SessionService(store, engine_factory.journal, engine_factory.approvals, WorkspaceLock, app_data / "locks")
     sessions.engine_factory = engine_factory
@@ -118,4 +120,5 @@ def create_control_application(
         memory=engine_factory.memory,
         reports=ReportExporter(store),
         engine_factory=engine_factory,
+        demo=DemoFacade(engine_factory, app_data),
     )

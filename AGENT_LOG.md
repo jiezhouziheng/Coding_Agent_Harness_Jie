@@ -7,9 +7,10 @@
 - **TDD 证据**：新增集成/演示测试首轮收集因缺少 `coding_agent_harness.demo` 产生真实 RED；最小实现后定向测试 `2 passed`。全量运行期间发现 demo 与 integration 的同名 `calc` 模块缓存耦合，改为演示专用 `demo_calc` 后稳定通过。
 - **实现范围**：`DemoScene`/`DemoReport`、复用 `EngineFactory` 的 `DemoFacade`、危险 `git push` DENY 场景、失败反馈改变下一动作场景、跨 StateStore 重开且审批单次消费场景、`demo governance` CLI、真实临时 Python 仓库集成测试。
 - **规格审查**：三幕均离线运行；不读取真实 Keyring、不访问网络/真实 LLM；危险动作不触达 Dispatcher；审批重放 fail-closed；集成测试验证 `test_failure` 进入后续上下文和最终 `SUCCEEDED`。
-- **质量审查**：修复 import 排序、上下文 observation 类别丢失和测试模块缓存耦合；Ruff、strict mypy、`git diff --check` 通过。
+- **质量审查**：修复 import 排序、上下文 observation 类别丢失、测试模块缓存耦合和 `python -m coding_agent_harness.cli` 入口缺失；Ruff、strict mypy、`git diff --check` 通过。
 - **验证证据**：Task 13 定向 `2 passed`；PR-03 全量 `344 passed, 3 skipped`，3 个 skip 均为 Windows WinError 1314 符号链接权限限制。
-- **待提交 diff**：`src/coding_agent_harness/demo.py`、`src/coding_agent_harness/application.py`、`src/coding_agent_harness/cli.py`、`src/coding_agent_harness/storage.py`、`tests/conftest.py`、`tests/test_integration.py`、`tests/test_demo.py`。
+- **提交**：Task 11 `8c6d035`；Task 12 `54f74a6`；Task 13 `9c08553`。
+- **待提交 diff**：`src/coding_agent_harness/demo.py`、`src/coding_agent_harness/application.py`、`src/coding_agent_harness/cli.py`、`tests/test_integration.py`、`tests/test_demo.py`。
 
 ## 2026-08-14T02:20:00+08:00 - TASK-11 - Durable recovery, workspace lock, and CLI
 

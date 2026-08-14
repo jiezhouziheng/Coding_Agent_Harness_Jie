@@ -217,6 +217,24 @@ def demo() -> None:
     """Run demonstrations."""
 
 
+@demo_app.command("governance")
+def demo_governance(ctx: typer.Context) -> None:
+    import tempfile
+
+    from coding_agent_harness.application import create_control_application
+    from coding_agent_harness.credentials import MemoryCredentialBackend
+
+    with tempfile.TemporaryDirectory(prefix="cah-demo-app-") as name:
+        service = create_control_application(Path(name), credential_backend=MemoryCredentialBackend())
+        try:
+            result = service.demo.run_governance()
+            _show(result)
+            code = 0 if all(scene.passed for scene in result.scenes) else 1
+        finally:
+            service.store.close()
+    raise typer.Exit(code=code)
+
+
 app.add_typer(sessions_app, name="sessions")
 app.add_typer(approvals_app, name="approvals")
 app.add_typer(changes_app, name="changes")
@@ -224,3 +242,7 @@ app.add_typer(credentials_app, name="credentials")
 app.add_typer(memory_app, name="memory")
 app.add_typer(report_app, name="report")
 app.add_typer(demo_app, name="demo")
+
+
+if __name__ == "__main__":
+    app()
