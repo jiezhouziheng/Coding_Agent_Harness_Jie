@@ -202,7 +202,7 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 11 | 持久恢复、漂移处理与 CLI | PR-03 | P0 | 10 | 已合并 | `8c6d035` |
 | 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 已合并 | `54f74a6` |
 | 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 已合并 | `a90d95a` |
-| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 未执行 | - |
+| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | 见本次 Task 14 提交 |
 | 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 未执行 | - |
 
 ## 6. 替代冷启动审查 - 已执行
@@ -3273,6 +3273,8 @@ Expected: 全部 PASS。
 Run: `python -m build`
 
 Expected: `dist/` 同时生成 `.whl` 和 `.tar.gz`。
+
+**Task 14 本地证据（2026-08-14）：** TDD 初始 RED、规格/质量审查回归 RED 均已记录于 `AGENT_LOG.md`；最终 targeted pytest `20 passed`，Ruff、strict mypy、`python -m build --no-isolation` 与 `git diff --check` 通过，wheel/sdist 均验证包含四个静态 WebUI 资源。规格审查与质量审查均为 APPROVED。远程 CI、Pages、PR 与 push 尚未执行，不作为本任务本地完成证据。
 
 ```powershell
 git add .github/workflows/ci.yml .github/workflows/pages.yml .gitlab-ci.yml Makefile scripts/verify.ps1 scripts/verify.sh .gitignore .gitattributes README.md pyproject.toml tests/test_package.py

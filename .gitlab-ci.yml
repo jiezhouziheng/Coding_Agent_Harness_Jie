@@ -1,0 +1,17 @@
+image: python:3.13
+
+stages:
+  - test
+
+unit-test:
+  stage: test
+  script:
+    - python -m pip install ".[dev]"
+    - python -m pytest
+    - python -m ruff check .
+    - python -m mypy --strict src
+    - python -m build
+  artifacts:
+    when: on_success
+    paths:
+      - dist/*
