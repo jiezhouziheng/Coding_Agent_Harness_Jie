@@ -12,6 +12,14 @@ from typing import Any, Self
 from coding_agent_harness.models import ApprovalStatus, Observation, SessionStatus
 from coding_agent_harness.policy import PendingAction
 
+_RESUMABLE_SESSION_STATUSES = frozenset(
+    {
+        SessionStatus.CREATED,
+        SessionStatus.RUNNING,
+        SessionStatus.PAUSED_APPROVAL,
+    }
+)
+
 
 def default_app_data_dir() -> Path:
     if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
@@ -100,6 +108,9 @@ class SessionService:
         return _safe_session(self.store.get_session(session_id))
 
     def resume_and_run(self, session_id: str) -> Any:
+        persisted = self.store.get_session(session_id)
+        if persisted.status not in _RESUMABLE_SESSION_STATUSES:
+            return persisted
         session = self.resume(session_id)
         if session.status is SessionStatus.PAUSED_WORKSPACE_DRIFT:
             return session

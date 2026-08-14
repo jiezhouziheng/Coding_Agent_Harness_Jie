@@ -77,6 +77,8 @@ class HarnessEngine:
 
     def run(self, session_id: str) -> SessionResult:
         session = self.store.get_session(session_id)
+        if session.status not in {SessionStatus.CREATED, SessionStatus.RUNNING}:
+            raise ValueError("session_not_runnable")
         if session.status is SessionStatus.CREATED:
             baseline = self.validators.run(ValidationStage.BASELINE, self.workspace)
             self.store.record_validations(session_id, baseline)
