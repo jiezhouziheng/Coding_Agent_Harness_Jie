@@ -1,5 +1,13 @@
 # Coding Agent Harness Jie - Agent 协作日志
 
+## 2026-08-14 - PR-02/PR-03 closeout after merge
+
+- **PR-02**：GitHub PR #2 已合并，merge commit 为 `6d88c18e4cc1ffcdcddc769fe586778db12be30e`；Task 6-10 commit 已回填到 `PLAN.md`。
+- **PR-03**：GitHub PR #3 已合并，merge commit 为 `1e395030d2462a6486d9461b4fa3b8c633b52dac`；Task 11-13 commit 已回填到 `PLAN.md`。
+- **合并后 main**：本地 `main` 已快进到 `origin/main`=`1e395030d2462a6486d9461b4fa3b8c633b52dac`。
+- **验证**：合并后全量 pytest `342 passed, 3 skipped`；3 个 skip 均为 Windows `WinError 1314` 符号链接权限限制；strict mypy 通过。Ruff 对 `src tests` 的唯一失败来自负责人现有 `tests/test_file_tools.py` 修改中的未使用 `FileTools` import，未修改该用户文件。
+- **工作区边界**：负责人 staged 的 `REFLECTION.md` 保持原样；负责人对 `tests/test_file_tools.py` 的差异保持原样。PR-02 worktree 已具备清理条件；PR-03 worktree 仍保留本地未推送的 `2c1cb71`，因此未强制删除以避免丢失本地提交；PR-01 worktree/分支未清理。
+
 ## 2026-08-14T08:20:00+08:00 - PR-03 - Pushed and opened for review
 
 - **状态**：GitHub PR #3 已创建并保持 open：`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/3`。
