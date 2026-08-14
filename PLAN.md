@@ -203,7 +203,7 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 已合并 | `54f74a6` |
 | 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 已合并 | `a90d95a` |
 | 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | `79fb0cd89849cafe003a991542343ea9bfee1812` |
-| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；远端 CI/Pages、PR、ZIP 待主控核验 | 本提交（完整 hash 由外部 PR 证据回填） |
+| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；PR #4 的 CI 修复已在生产 CommandRunner 边界完成 TDD，修复规格/质量复审均 APPROVED；commit、远端复跑、Pages 与 ZIP 待主控核验 | `bc1af8f8795ab79da1a34060efe7ccb763a05115` |
 
 ## 6. 替代冷启动审查 - 已执行
 
@@ -3400,10 +3400,42 @@ Expected: wheel 安装成功，三幕演示全部 PASS。验证后仅在确认 `
 
 检查最后一次 GitHub Actions `unit-test` 为 pass，构建 artifact 可下载；Pages URL 可公开打开 mock 报告；页面无控制 API。把 run URL、Pages URL、PR、执行智能体、人工修改和最终 commit 写入 `AGENT_LOG.md`，不得用本地结果冒充远端证据。
 
-当前状态：尚未 push 或创建 PR，GitHub Actions、artifact、Pages URL 均未远端核验；由主控在
-远端操作后回填真实 URL 和状态。本地静态扫描确认没有 XMLHttpRequest、WebSocket、
-EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、按钮或事件控制通道；唯一 `fetch`
-目标为同目录 `./mock-report.json`。
+2026-08-14 远端失败证据：PR #4 为
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/4`。head
+`bc1af8f8795ab79da1a34060efe7ccb763a05115` 的 push run
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31771008367` 与
+pull_request run
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31771114313` 均真实失败：
+`unit-test` 的 Run tests 为 `1 failed, 354 passed`，失败点是 `tests/test_demo.py` 第二幕
+`passed=false`、`decision=NEEDS_USER_DECISION`；因此后续 lint、mypy、build 与 artifact 均被跳过。
+
+根因是 `_feedback_scene` 在同一秒内依次写入 `return 1`、`return 3`、`return 2`，三份源码
+长度相同；Linux runner 的 timestamp pyc 仅用秒级 mtime 与文件大小校验，连续 pytest 可能
+复用初始 `return 1` 字节码。修复 subagent `pr04_ci_fix` 的第一次 TDD 尝试在 demo 测试中
+冻结 mtime，并把中间 fixture 改为不同长度的 `return 300`；该测试确实先 RED 后 GREEN，
+但独立质量审查判定为 `CHANGES REQUIRED`：它只规避课程 demo 的特定数据，真实 Agent 对任意
+同长度 Python 编辑仍可能误用旧字节码。该 demo workaround 及其新增测试已完整撤销，原始
+`1 -> 3 -> 2` 场景保持不变。
+
+替代修复先在真实 `app_factory`、`ScriptedMockLLM`、文件工具和 pytest 闭环中对 `calc.py`
+每次初写/原子替换后冻结同一 mtime，并在 CommandRunner 合同中要求每个子进程获得非继承、
+唯一的 `PYTHONPYCACHEPREFIX`，正常结束、timeout 或 Popen 异常后目录都已清理。旧 CommandRunner
+真实 RED 为 `4 failed, 7 passed`，闭环状态为 `NEEDS_USER_DECISION`。最小生产实现只在系统
+TEMP 的 `TemporaryDirectory(prefix="cah-pycache-")` 生命周期内，基于 `scrub_environment`
+构造环境并强制设置该前缀，再执行/等待/终止子进程；不删除用户 workspace 缓存、不扩大命令
+白名单、不读取或泄漏凭据。targeted GREEN 为 `12 passed in 36.68s`；Windows 全量为
+`355 passed, 3 skipped in 46.60s`，Ruff、strict mypy 和保持原数据的三幕 demo 均通过。
+实际实现 subagent：`pr04_ci_fix`；人工修改：无。
+
+独立规格复审与质量复审均为 `APPROVED`，无遗留 finding。质量复审的额外行为哨兵原始输出为
+`sentinel_preserved=True`、`prefix_outside_workspace=True`、`prefix_cleaned=True`，分别证明
+workspace 既有 `__pycache__` 未被删除、Runner 前缀位于 workspace 外、退出后已清理；未为该
+哨兵虚构测试名或命令。
+
+当前状态：上述生产边界修复仍待 fresh 完整门禁、commit、push 和两种事件的远端复跑；不得
+把本地 GREEN 冒充远端 success，artifact 仍不存在。Pages 仍未远端部署或核验。本地静态扫描
+确认没有 XMLHttpRequest、WebSocket、EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、
+按钮或事件控制通道；唯一 `fetch` 目标为同目录 `./mock-report.json`。
 
 - [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-17 远端部分仍待核验）**
 
@@ -3502,4 +3534,4 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：Task 1-14 已有真实提交；Task 15 本地质量门禁、机制演示、关键回归、凭据/敏感产物扫描、wheel 隔离安装和两阶段最终复审已经完成，规格与质量结论均为 `APPROVED` 且无遗留。本提交只关闭 Task 15 本地过程记录；远端 PR、Actions artifact、Pages URL 与课程 ZIP 仍由主控按真实结果关闭，当前文档不预填这些证据。
+当前状态：Task 1-14 已有真实提交；Task 15 本地质量门禁、机制演示、关键回归、凭据/敏感产物扫描、wheel 隔离安装和原本两阶段最终复审已经完成。PR #4 的 push 与 pull_request CI 随后真实暴露同秒、同大小源码触发的 timestamp pyc 复用问题；`pr04_ci_fix` 的 demo 数据 workaround 被质量审查判定 `CHANGES REQUIRED` 后已撤销，现已用 TDD 在生产 CommandRunner 边界完成每次子进程独立 pycache 前缀的最小修复和全量回归。该修复的独立规格/质量复审均为 `APPROVED` 且无遗留，仍待 fresh 门禁、commit、push 与远端复跑。Actions artifact、Pages URL 与课程 ZIP 继续由主控按真实结果关闭，不预填成功证据。
