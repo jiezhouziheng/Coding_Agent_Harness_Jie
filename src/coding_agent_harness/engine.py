@@ -74,7 +74,7 @@ class HarnessEngine:
             self.store.record_validations(session_id, baseline)
             if not self.validators.success_gate_open(baseline):
                 self.store.record_observation(
-                    session_id, observation_from_validation("", baseline)
+                    session_id, observation_from_validation("", baseline).model_copy(update={"action_id": None})
                 )
             self.store.transition_session(session_id, SessionStatus.RUNNING)
 

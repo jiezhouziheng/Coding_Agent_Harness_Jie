@@ -1,5 +1,44 @@
 # Coding Agent Harness Jie - Agent 协作日志
 
+## 2026-08-14T08:20:00+08:00 - PR-03 - Pushed and opened for review
+
+- **状态**：GitHub PR #3 已创建并保持 open：`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/3`。
+- **base/head**：base `main`=`6d88c18e4cc1ffcdcddc769fe586778db12be30e`；head 为远端 `feature/pr03-control-demo` 当前最新提交。
+- **提交历史**：Task 11 `8c6d035`、Task 12 `54f74a6`、Task 13 `a90d95a`、交付记录 `2355b26`；保持独立 commit，未 squash。
+- **远端验证**：PR 创建 API 返回 `state=open`、base `main`、head `feature/pr03-control-demo`；未执行 merge。
+
+## 2026-08-14T03:10:00+08:00 - TASK-13 - Deterministic integration and governance demo
+
+- **状态**：实现完成，等待负责人提交；PR-03 worktree 为 `feature/pr03-control-demo`。
+- **实现 subagent**：`task13_impl` 未单独交付；控制器 `codex-main` 按 Task 13 合同完成 TDD、实现、规格审查和质量修复；无用户人工代码修改。
+- **TDD 证据**：新增集成/演示测试首轮收集因缺少 `coding_agent_harness.demo` 产生真实 RED；最小实现后定向测试 `2 passed`。全量运行期间发现 demo 与 integration 的同名 `calc` 模块缓存耦合，改为演示专用 `demo_calc` 后稳定通过。
+- **实现范围**：`DemoScene`/`DemoReport`、复用 `EngineFactory` 的 `DemoFacade`、危险 `git push` DENY 场景、失败反馈改变下一动作场景、跨 StateStore 重开且审批单次消费场景、`demo governance` CLI、真实临时 Python 仓库集成测试。
+- **规格审查**：三幕均离线运行；不读取真实 Keyring、不访问网络/真实 LLM；危险动作不触达 Dispatcher；审批重放 fail-closed；集成测试验证 `test_failure` 进入后续上下文和最终 `SUCCEEDED`。
+- **质量审查**：修复 import 排序、上下文 observation 类别丢失、测试模块缓存耦合和 `python -m coding_agent_harness.cli` 入口缺失；Ruff、strict mypy、`git diff --check` 通过。
+- **验证证据**：Task 13 定向 `2 passed`；PR-03 全量 `344 passed, 3 skipped`，3 个 skip 均为 Windows WinError 1314 符号链接权限限制。
+- **提交**：Task 11 `8c6d035`；Task 12 `54f74a6`；Task 13 `a90d95a`。
+- **待提交 diff**：`src/coding_agent_harness/demo.py`、`src/coding_agent_harness/application.py`、`src/coding_agent_harness/cli.py`、`tests/test_integration.py`、`tests/test_demo.py`。
+
+## 2026-08-14T02:20:00+08:00 - TASK-11 - Durable recovery, workspace lock, and CLI
+
+- **状态**：实现完成，等待负责人提交；PR-03 worktree 为 `feature/pr03-control-demo`。
+- **实现 subagent**：`task11_impl` 完成恢复服务、组合根、CLI 和 fixtures；控制器 `codex-main` 完成参数、报告接入、resume-and-run、mock script 与基线 observation 修复；无用户人工代码修改。
+- **TDD 证据**：新增 recovery/CLI 测试首轮在缺少服务模块时产生真实 RED；实现后 recovery、CLI、report 回归 `10 passed`。CLI 审查先发现退出码 2（Typer 选项未声明）和凭据状态缺少 `configured`，修复后通过。
+- **实现范围**：StateStore-backed SessionService、漂移检查与 approval invalidation、workspace lock、EngineFactory composition root、run/sessions/approvals/changes/credentials/report 控制命令、稳定退出码和 mock script 注入。
+- **规格/质量审查**：恢复不绕过漂移检查；单工作区锁使用原子独占文件；CLI 不回显凭据；基线失败 observation 不绑定空 action id；Ruff 和 strict mypy 通过。
+- **验证证据**：`pytest tests/test_recovery.py tests/test_cli.py tests/test_reporting.py` 为 `10 passed`；`ruff check` 通过；`mypy --strict src` 通过。
+- **待提交 diff**：`application.py`、`session_service.py`、`cli.py`、`approvals.py`、`journal.py`、`storage.py`、`engine.py`、`tests/conftest.py`、`tests/test_recovery.py`、`tests/test_cli.py`。
+
+## 2026-08-14T02:30:00+08:00 - TASK-12 - Redacted report exporter and static read-only WebUI
+
+- **状态**：实现完成，等待负责人提交；PR-03 worktree 为 `feature/pr03-control-demo`。
+- **实现 subagent**：`task12_impl` 完成报告/静态 WebUI 和测试；控制器 `codex-main` 修复报告路径/摘要脱敏 helper、重复定义和 Ruff 回归；无用户人工代码修改。
+- **TDD 证据**：新增报告测试首轮产生 `ModuleNotFoundError: coding_agent_harness.reporting`；实现后的报告测试 `3 passed`。
+- **实现范围**：SessionReport schema、StateStore allowlist 查询、相对路径和不导出 evidence/source/secret、原子 JSON 导出；静态 index/styles/app/mock-report。
+- **安全审查**：Web viewer 只 fetch `./mock-report.json`，使用 `textContent`，无 `innerHTML`、WebSocket、SQLite 或执行/审批 API；报告不含 secret、绝对路径、源文本或原始 evidence。
+- **质量证据**：Ruff、strict mypy 和 `git diff --check` 通过；发现并修复 `_relative_report_path`/`_safe_summary` 缺失和重复定义问题。
+- **待提交 diff**：`reporting.py`、`storage.py` 报告查询、`src/coding_agent_harness/web/*`、`tests/test_reporting.py`。
+
 ## 2026-08-14T02:00:00+08:00 - TASK-10 - Governed agent loop and completion gate
 
 - **状态**：实现完成，等待负责人提交；PR-02 worktree 为 `feature/pr02-agent-loop`。

@@ -5,6 +5,41 @@ import pytest
 from coding_agent_harness.storage import StateStore
 
 
+@pytest.fixture
+def credential_backend():
+    from coding_agent_harness.credentials import MemoryCredentialBackend
+
+    return MemoryCredentialBackend()
+
+
+@pytest.fixture
+def cli_app(app_data: Path, credential_backend, monkeypatch: pytest.MonkeyPatch):
+    from coding_agent_harness import cli
+    from coding_agent_harness.application import create_control_application
+
+    service = create_control_application(app_data, credential_backend=credential_backend)
+    monkeypatch.setattr(cli, "_services", lambda _ctx: service)
+    return cli.app
+
+
+@pytest.fixture
+def app_factory():
+    from coding_agent_harness.application import create_control_application
+    from coding_agent_harness.credentials import MemoryCredentialBackend
+
+    def factory(*, workspace: Path, llm):
+        app_data = workspace.parent / ".cah-app-data"
+        service = create_control_application(
+            app_data,
+            credential_backend=MemoryCredentialBackend(),
+            llm_factory=lambda: llm,
+        )
+        service.default_workspace = workspace
+        return service
+
+    return factory
+
+
 class MemoryAuditWriter:
     def __init__(self) -> None:
         self.events: list[dict[str, object]] = []

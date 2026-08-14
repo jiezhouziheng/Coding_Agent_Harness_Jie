@@ -126,6 +126,11 @@ class ApprovalService:
     def invalidate(self, approval_id: str) -> ApprovalRecord:
         return self._transition(approval_id, ApprovalStatus.INVALIDATED)
 
+    def invalidate_for_session(self, session_id: str, *, reason: str = "workspace_drift") -> None:
+        """Invalidate all pending approvals for a session after a recovery check."""
+        for approval in self.store.list_pending_approvals(session_id):
+            self.invalidate(approval.id)
+
     def _transition(
         self, approval_id: str, target: ApprovalStatus
     ) -> ApprovalRecord:

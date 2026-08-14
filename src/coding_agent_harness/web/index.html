@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Harness Session Report</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <p class="eyebrow">CODING AGENT HARNESS</p>
+      <div class="summary-row">
+        <div><h1>Session report</h1><p class="muted" data-session>Loading session...</p></div>
+        <span class="status" data-status>Loading</span>
+      </div>
+      <p class="error" data-error role="alert"></p>
+    </header>
+    <section class="grid" aria-label="Session details">
+      <article class="panel timeline-panel"><div class="panel-heading"><h2>Timeline</h2><span class="muted">Actions</span></div><ol class="timeline" data-timeline></ol></article>
+      <aside class="panel detail-panel"><div class="panel-heading"><h2>Governance</h2></div><h3>Approvals</h3><ul class="compact-list" data-approvals></ul><h3>Validation</h3><ul class="compact-list" data-validations></ul></aside>
+    </section>
+  </main>
+  <script src="./app.js" defer></script>
+</body>
+</html>
