@@ -330,3 +330,14 @@
 - **本地验证与环境排障**：直接 strict mypy 的 win32/linux 平台均为 `Success: no issues found in 23 source files`；package/CommandRunner/integration/demo targeted 为 `31 passed in 52.03s`；全量为 `357 passed, 3 skipped in 58.30s`，skip 均为 Windows `WinError 1314`。首次 `ruff check .` 只因 worktree 根 basetemp 中测试故意生成的非法 `pyproject.toml` 解析失败；经绝对路径边界检查删除本轮 basetemp 后，Ruff 重新运行 `All checks passed!`。原始三幕 demo exit code 0、均 PASS，输出 `network_used=false`、`real_keyring_used=false`；`python -m build --no-isolation` 成功生成 wheel/sdist。
 - **第二轮修复复审**：独立规格复审与质量复审均为 `APPROVED`，无遗留 finding。质量复审额外 Windows 行为哨兵原始输出为 `os_name=nt flags=512 expected=512 equal=True`，确认平台安全属性读取保持 `CREATE_NEW_PROCESS_GROUP` runtime flag 不变。
 - **范围与状态**：最终未提交 diff 仅含 `src/coding_agent_harness/command_runner.py`、`tests/test_package.py`、`PLAN.md`、`AGENT_LOG.md`；实际实现 subagent 为 `pr04_ci_fix`，人工修改：无。fresh 最终门禁与 commit 待执行；push、两种事件远端再次复跑、artifact 与 Pages 均为 pending，不预填成功证据。
+
+## 2026-08-14T14:34:20+08:00 - TASK-15-PREMERGE-REMOTE - final head CI、artifact 与 Pages 边界
+
+- **PR 与最终代码 head**：公开 PR 为 `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/4`；final code head 为 `9fb7da80a230ebbc8a31affaa493a21bd8b681b2`。Task 15 原提交 `bc1af8f8795ab79da1a34060efe7ccb763a05115` 保持不变；两轮 remediation 分别为 `77acec3c1f651f2df6dbcd651913f335b5181e37` 与 `9fb7da80a230ebbc8a31affaa493a21bd8b681b2`，实际实现 subagent 均为 `pr04_ci_fix`，人工代码修改为无。
+- **pull_request CI**：run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31776061768` 为 success，`unit-test` job ID `94691623095`；checkout/setup、安装 `.[dev]`、pytest、Ruff、strict mypy、build 和 artifact upload 全部 success。
+- **push CI**：run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31776059409` 为 success，`unit-test` job ID `94691616778`；同一组 pytest、Ruff、strict mypy、build 和 upload 步骤全部 success。因此 AC-17 远端合同关闭为 PASS。
+- **artifact**：pull_request run 的 `python-distributions` artifact ID `9209914344`、size `227225`、`expired=false`；下载 ZIP SHA-256 为 `01D5FF9BB323ED30149AD1503FAB943E26679587A999730768DE68824CB55F59`，清单恰好包含一个 wheel 与一个 sdist。push run 的同名 artifact ID `9209915305`、size `227225`、`expired=false`。这些是 final code head 的真实远端证据，不以本地 `dist/` 冒充。
+- **Pages 外部设置与当前状态**：Pages 初始 GET 为 404、仓库未配置；主控随后通过 GitHub Pages 设置接口 POST `build_type=workflow`。这是主控执行的仓库外部设置操作，不是人工代码修改。真实 URL 为 `https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/`，`https_enforced=true`，当前 HTTP 404；Pages workflow 仅允许 `main` 且 PR 尚未 merge，因此不能声称已部署或可读。AC-15 保持本地 PASS，合并后必须核验公开页面只含静态 mock 报告且无控制 API、SQLite、WebSocket 或审批能力。
+- **ZIP 与 closeout 边界**：课程 ZIP 必须在本条 pre-merge 证据形成 closeout commit 后，由主控对最终 `HEAD` 使用 `git archive` 生成并在外部核验。当前没有 ZIP 路径、hash 或内容完成证据，保持 pending；不得预填。
+- **本条范围与人工修改**：仅更新 `PLAN.md` 与 `AGENT_LOG.md` 的真实远端/当前状态；人工代码修改为无。未读取 PDF、`REFLECTION.md`、真实 Keyring、真实 API Key 或真实 LLM；未改动旧 worktree。
+- **远端证据增量复审**：独立规格审查与质量审查均为 `APPROVED`，无遗留 finding；复审未改变 Pages 合并后核验或课程 ZIP 在本次 closeout commit 后生成的 pending 边界。

@@ -203,7 +203,7 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 已合并 | `54f74a6` |
 | 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 已合并 | `a90d95a` |
 | 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | `79fb0cd89849cafe003a991542343ea9bfee1812` |
-| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；第一轮 CI 修复已提交；第二轮跨平台 mypy 修复规格/质量复审均 APPROVED；commit、远端复跑、Pages 与 ZIP 待主控核验 | `bc1af8f8795ab79da1a34060efe7ccb763a05115`；remediation `77acec3c1f651f2df6dbcd651913f335b5181e37` |
+| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；final head 的 push/PR `unit-test` 与 artifacts PASS；Pages 合并后核验和 ZIP 待主控关闭 | `bc1af8f8795ab79da1a34060efe7ccb763a05115`；remediation `77acec3c1f651f2df6dbcd651913f335b5181e37`、`9fb7da80a230ebbc8a31affaa493a21bd8b681b2` |
 
 ## 6. 替代冷启动审查 - 已执行
 
@@ -3460,12 +3460,32 @@ worktree basetemp 含故意生成的非法 `pyproject.toml`，导致随后首次
 Windows runtime 分支，原始输出为 `os_name=nt flags=512 expected=512 equal=True`，证明平台安全
 属性读取没有改变 Windows `CREATE_NEW_PROCESS_GROUP` 的实际 flag 值。
 
-当前状态：第二轮修复仍待 fresh 最终门禁、commit、push 和两种事件的再次远端复跑；不得把
-本地 GREEN 冒充远端 success，artifact 仍不存在。Pages 仍未远端部署或核验。本地静态扫描确认
-没有 XMLHttpRequest、WebSocket、EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、按钮
-或事件控制通道；唯一 `fetch` 目标为同目录 `./mock-report.json`。
+第二轮跨平台修复已提交并 push，最终 code head 为
+`9fb7da80a230ebbc8a31affaa493a21bd8b681b2`，PR 仍为
+`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/4`。该 head 的两种事件均有真实
+成功证据：
 
-- [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-17 远端部分仍待核验）**
+- pull_request run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31776061768`，
+  `unit-test` job `94691623095`；
+- push run `https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/actions/runs/31776059409`，
+  `unit-test` job `94691616778`。
+
+两个 job 的 checkout/setup、安装 `.[dev]`、pytest、Ruff、strict mypy、build 和 artifact upload
+步骤全部为 success。pull_request run 的 `python-distributions` artifact ID 为 `9209914344`，
+size `227225`、`expired=false`；下载 ZIP 的 SHA-256 为
+`01D5FF9BB323ED30149AD1503FAB943E26679587A999730768DE68824CB55F59`，清单恰好一个 wheel
+和一个 sdist。push run 的同名 artifact ID 为 `9209915305`，size `227225`、`expired=false`。
+因此 AC-17 的远端 `unit-test` 与 artifact 合同已关闭为 PASS。
+
+Pages 初始 GET 为 404，原因是仓库尚未配置 Pages。主控随后通过 GitHub Pages 设置接口将
+`build_type` 配置为 `workflow`；这是仓库外部设置操作，人工代码修改为无。真实 URL 为
+`https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/`，`https_enforced=true`，当前仍为
+HTTP 404。Pages workflow 只允许 `main`，而 PR 尚未 merge，因此 pre-merge 404 是安全预期，
+不能写成已部署或可读；合并后必须再核验其只提供静态 mock 报告。本地静态扫描仍确认没有
+XMLHttpRequest、WebSocket、EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、按钮或事件
+控制通道，唯一 `fetch` 为同目录 `./mock-report.json`。
+
+- [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-17 已关闭；AC-15 Pages 合并后待核验）**
 
 在下方 AC 映射表逐项附测试/命令证据；更新冷启动发现、修订 diff、各 task commit；只有全部 P0 和六维最低实现通过才把 SPEC 状态改为“已实现”。`REFLECTION.md` 只记录真实经历，不虚构个人感受。
 
@@ -3492,6 +3512,9 @@ Expected: ZIP 存在；解压清单包含源码、测试、SPEC/PLAN/SPEC_PROCES
 PR04 `HEAD`。本任务不得复制、提交、取消暂存或用 PR04 版本覆盖它；因此 `git archive HEAD`
 生成的 PR04 ZIP 应如实记录缺少该文件，而不能为满足旧清单将用户版本带入分支。只有负责人提供
 真实反思内容并再次明确授权后，才可改变这个例外。
+
+当前状态：ZIP 必须在本次 pre-merge 证据 closeout commit 之后，由主控针对最终 `HEAD` 使用
+`git archive` 生成并作为外部证据核验。此时尚未生成，因此不预填路径、SHA-256 或完成状态。
 
 - [x] **Step 8：完成本地 Task 15 提交（远端分支收尾仍待 Step 5/7）**
 
@@ -3531,7 +3554,7 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 | AC-14 | 9,11 | 凭据生命周期 2 项和 CLI 不回显测试通过；tracked 文本扫描仅命中 `PLAN.md:2283` 的 `provider.invalid`/`test-secret` 假 fixture，真实或未解释凭据 0 命中 | PASS |
 | AC-15 | 12 | `tests/test_reporting.py` 3 项通过；主动控制通道扫描 0 命中，仅相对读取 mock JSON | 本地 PASS；Pages URL 待远端核验 |
 | AC-16 | 13 | 直接运行 `cah demo governance`，三幕均 `passed=true`、exit code 0 | PASS |
-| AC-17 | 14,15 | fresh `verify.ps1`：`352 passed, 3 skipped`，Ruff/mypy/build 全通过 | 本地 PASS；远端 `unit-test` 待核验 |
+| AC-17 | 14,15 | fresh 本地门禁通过；final head 的 pull_request run `31776061768` 与 push run `31776059409` 均为 success，两个 `unit-test` 完成 pytest/Ruff/strict mypy/build/upload | PASS |
 | AC-18 | 14,15 | wheel/sdist 资源核验；TEMP venv 离线安装 wheel、site-packages 导入断言和安装后 demo 通过 | PASS |
 
 ## 8. 六维机制覆盖
@@ -3562,4 +3585,4 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：Task 1-14 已有真实提交；Task 15 本地验收与原本两阶段最终复审已经完成。PR #4 第一轮 CI 暴露 timestamp pyc 复用问题，生产 CommandRunner 修复 `77acec3` 已通过复审并 push；第二轮 push/pull_request CI 的 pytest 与 Ruff 成功，但 Linux strict mypy 因直接引用 Windows 专属常量失败。`pr04_ci_fix` 已先取得跨平台 RED，再以平台安全 `getattr` 完成本地双平台 GREEN、targeted、全量、Ruff、demo 与 build；该第二轮修复的独立规格/质量复审也均为 `APPROVED` 且无遗留，仍待 fresh 门禁、commit、push 与远端复跑。Actions artifact、Pages URL 与课程 ZIP 继续由主控按真实结果关闭，不预填成功证据。
+当前状态：Task 1-14 已有真实提交；Task 15 本地验收、两阶段最终复审和两轮 CI remediation 已完成，final code head 为 `9fb7da80a230ebbc8a31affaa493a21bd8b681b2`。该 head 的 push 与 pull_request `unit-test`、build 和 artifacts 均有真实 success 证据，AC-17 已关闭。本次远端证据增量的独立规格审查与质量审查均为 `APPROVED`，无遗留 finding。Pages 已由主控在仓库设置中启用 workflow 模式且强制 HTTPS，但 main-only 工作流在 PR 未合并前尚未部署，真实 URL 当前 404；AC-15 仍为本地 PASS、Pages 合并后待核验。课程 ZIP 必须在本次 closeout commit 后针对最终 HEAD 生成，当前仍为外部证据 pending。
