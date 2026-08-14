@@ -3,7 +3,7 @@
 ## 2026-08-14T08:20:00+08:00 - PR-03 - Pushed and opened for review
 
 - **状态**：GitHub PR #3 已创建并保持 open：`https://github.com/jiezhouziheng/Coding_Agent_Harness_Jie/pull/3`。
-- **base/head**：base `main`=`6d88c18e4cc1ffcdcddc769fe586778db12be30e`；head `feature/pr03-control-demo`=`2355b26485d0c0f94445a886ea66ea464b75e6ba`。
+- **base/head**：base `main`=`6d88c18e4cc1ffcdcddc769fe586778db12be30e`；head 为远端 `feature/pr03-control-demo` 当前最新提交。
 - **提交历史**：Task 11 `8c6d035`、Task 12 `54f74a6`、Task 13 `a90d95a`、交付记录 `2355b26`；保持独立 commit，未 squash。
 - **远端验证**：PR 创建 API 返回 `state=open`、base `main`、head `feature/pr03-control-demo`；未执行 merge。
 
