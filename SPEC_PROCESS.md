@@ -249,7 +249,7 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 - `SPEC_PROCESS.md`：已记录 brainstorming、计划与 fresh Codex 替代冷读审查；实现期间继续更新。
 - `PLAN.md`：已获负责人批准并按四个 PR 波次执行；Task 1-15、远端 CI/Pages 与课程 ZIP 合同均已关闭。
 - `AGENT_LOG.md`：已记录到 PR-04 合并后验收；PR、main CI、artifact、Pages 与外部 ZIP 证据均来自真实操作。
-- `REFLECTION.md`：负责人主工作区存在 staged 用户版本；PR04 未读取、未修改、未取消暂存、未提交。
+- `REFLECTION.md`：PR04 阶段的用户版本未被触碰；2026-08-14 项目收尾时负责人另行明确授权后，已根据真实项目过程完成，并标注 Codex 辅助整理、校对与润色。
 - 实现源码：Task 1-14 已完成；2026-08-14 本地 `verify.ps1`、治理演示、安全回归、扫描和 wheel 安装验证均通过。
 
 ### Task 15 本地交付验证
@@ -349,3 +349,15 @@ Pages。公开 URL `https://jiezhouziheng.github.io/Coding_Agent_Harness_Jie/` �
 - Open Design 仅用于静态报告页，不属于运行时 Harness 机制。
 - Brainstorming 期间没有生成代码、项目骨架、安装依赖或编写实现计划。
 - 课程要求的异构智能体实现试运行在时间盒与资源约束下调整为 fresh Codex 受限上下文只读审查；文档明确两者不等价，并记录实际发现与修订。
+
+## 13. 合并后最终修订
+
+四个计划 PR 全部合并后，负责人要求不再建立新分支/PR，授权直接在 `main` 完成最终优化、Git
+整理、commit 和 push。该决定只适用于 post-delivery 修订，不改写此前每个 worktree 对应 PR 的
+课程流程证据。
+
+最终审查发现“组件已实现但生产组装未接线”：严格配置模型、Keyring 和 OpenAI-compatible 客户端
+只有独立测试，没有进入 `cah run`；持久审批也缺少从批准到恢复执行的 CLI 闭环。修订采用新的
+端到端 TDD 合同接通分层配置、凭据、验证器、上下文和审批恢复，同时补齐 README 配置/许可证、
+PLAN 复选框及带 AI 辅助声明的反思报告。该修订没有执行真实 LLM smoke test，也没有把离线 mock
+结果写成供应商效果证据。

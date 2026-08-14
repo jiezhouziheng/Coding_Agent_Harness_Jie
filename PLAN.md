@@ -1520,7 +1520,7 @@ git commit -m "feat(governance): enforce policy approvals and budgets [agent: ta
 - Create: `tests/test_journal.py`
 - Create: `tests/test_file_tools.py`
 
-- [ ] **Step 1：写精确替换和 fail-closed 红灯测试**
+- [x] **Step 1：写精确替换和 fail-closed 红灯测试**
 
 ```python
 # tests/test_file_tools.py
@@ -1551,13 +1551,13 @@ def test_replace_records_backup_before_write(tmp_path: Path, app_data: Path, sto
     assert target.read_bytes() == b"value = 2\r\n"
 ```
 
-- [ ] **Step 2：运行文件测试并确认红灯**
+- [x] **Step 2：运行文件测试并确认红灯**
 
 Run: `python -m pytest tests/test_file_tools.py -v`
 
 Expected: FAIL，文件工具模块不存在。
 
-- [ ] **Step 3：实现备份、原子写入和有界读取**
+- [x] **Step 3：实现备份、原子写入和有界读取**
 
 ```python
 # src/coding_agent_harness/journal.py
@@ -1645,7 +1645,7 @@ class FileTools:
 
 同一模式实现 `list_files`（排序、上限和截断标记）、`create`（目标必须不存在）、`delete`（备份成功后删除）。任何 DB/备份/fsync 失败均不得触碰目标文件。
 
-- [ ] **Step 4：写多操作回滚和漂移红灯测试**
+- [x] **Step 4：写多操作回滚和漂移红灯测试**
 
 ```python
 # tests/test_journal.py
@@ -1669,11 +1669,11 @@ def test_rollback_refuses_external_drift(workspace, journal, tools) -> None:
         journal.rollback("s1", workspace)
 ```
 
-- [ ] **Step 5：实现逆序回滚和指纹复查**
+- [x] **Step 5：实现逆序回滚和指纹复查**
 
 `rollback(session_id, workspace)` 按 `sequence DESC`：先确认当前内容等于 `after_digest`；`modify/delete` 从 `backup_ref` 原子恢复，`create` 只在指纹匹配时删除；完成后写回滚审计与会话状态。`keep` 只改变状态，不删除备份，备份清理由显式维护命令后置。
 
-- [ ] **Step 6：运行文件与回滚测试并提交**
+- [x] **Step 6：运行文件与回滚测试并提交**
 
 Run: `python -m pytest tests/test_file_tools.py tests/test_journal.py -v`
 
@@ -1701,7 +1701,7 @@ git commit -m "feat(tools): journal atomic file changes and rollback [agent: tas
 - Create: `tests/test_validation.py`
 - Create: `tests/test_dispatcher.py`
 
-- [ ] **Step 1：写 shell、环境、超时和截断红灯测试**
+- [x] **Step 1：写 shell、环境、超时和截断红灯测试**
 
 ```python
 # tests/test_command_runner.py
@@ -1733,13 +1733,13 @@ def test_runner_truncates_output(tmp_path: Path) -> None:
     assert result.truncated is True
 ```
 
-- [ ] **Step 2：运行命令测试并确认红灯**
+- [x] **Step 2：运行命令测试并确认红灯**
 
 Run: `python -m pytest tests/test_command_runner.py -v`
 
 Expected: FAIL，命令运行器模块不存在。
 
-- [ ] **Step 3：实现结构化 Popen、进程树超时和输出限制**
+- [x] **Step 3：实现结构化 Popen、进程树超时和输出限制**
 
 ```python
 # src/coding_agent_harness/command_runner.py
@@ -1802,7 +1802,7 @@ class CommandRunner:
         )
 ```
 
-- [ ] **Step 4：写阶段验证和完成门禁红灯测试**
+- [x] **Step 4：写阶段验证和完成门禁红灯测试**
 
 ```python
 # tests/test_validation.py
@@ -1818,7 +1818,7 @@ def test_failed_final_validator_closes_success_gate(tmp_path, fake_runner) -> No
     assert results[0].summary == "pytest failed"
 ```
 
-- [ ] **Step 5：实现验证阶段和授权 Dispatcher**
+- [x] **Step 5：实现验证阶段和授权 Dispatcher**
 
 ```python
 # src/coding_agent_harness/validation.py
@@ -1948,7 +1948,7 @@ class Dispatcher:
 
 补充测试：传裸 Action、篡改 fingerprint、DENY 决策或未消费审批时，Dispatcher 均抛出 `DispatchError` 且底层工具调用次数为 0。验证失败由 `ValidationPipeline` 生成 `test_failure`、`lint_failure` 或 `type_failure` Observation；绝不把 LLM 的完成摘要当作成功证据。
 
-- [ ] **Step 6：运行命令、验证和 Dispatcher 测试并提交**
+- [x] **Step 6：运行命令、验证和 Dispatcher 测试并提交**
 
 Run: `python -m pytest tests/test_command_runner.py tests/test_validation.py tests/test_dispatcher.py -v`
 
@@ -1973,7 +1973,7 @@ git commit -m "feat(feedback): run governed commands and validators [agent: task
 - Create: `tests/test_memory.py`
 - Create: `tests/test_context.py`
 
-- [ ] **Step 1：写候选生命周期和最多五条检索红灯测试**
+- [x] **Step 1：写候选生命周期和最多五条检索红灯测试**
 
 ```python
 # tests/test_memory.py
@@ -1996,13 +1996,13 @@ def test_verified_successful_fix_activates_and_search_is_bounded(store) -> None:
     assert all(entry.status == "ACTIVE" for entry in results)
 ```
 
-- [ ] **Step 2：运行记忆测试并确认红灯**
+- [x] **Step 2：运行记忆测试并确认红灯**
 
 Run: `python -m pytest tests/test_memory.py -v`
 
 Expected: FAIL，记忆服务模块不存在。
 
-- [ ] **Step 3：实现候选、批准、验证激活、拒绝和删除**
+- [x] **Step 3：实现候选、批准、验证激活、拒绝和删除**
 
 ```python
 # src/coding_agent_harness/memory.py
@@ -2040,7 +2040,7 @@ class MemoryService:
         return self.store.search_active_memory(project_id, keywords, min(limit, 5))
 ```
 
-- [ ] **Step 4：写上下文优先级和截断红灯测试**
+- [x] **Step 4：写上下文优先级和截断红灯测试**
 
 ```python
 # tests/test_context.py
@@ -2064,7 +2064,7 @@ def test_context_keeps_task_policy_and_current_failure_under_pressure() -> None:
     assert len(serialized.encode("utf-8")) <= 1_200
 ```
 
-- [ ] **Step 5：实现 ModelContext 和确定性预算裁剪**
+- [x] **Step 5：实现 ModelContext 和确定性预算裁剪**
 
 ```python
 # src/coding_agent_harness/context.py
@@ -2127,7 +2127,7 @@ class ContextBuilder:
 
 固定字段本身超预算时 fail-closed；集合按 SPEC 优先级加入，任何片段先脱敏和单项截断；完整历史不进入模型上下文。
 
-- [ ] **Step 6：运行记忆与上下文测试并提交**
+- [x] **Step 6：运行记忆与上下文测试并提交**
 
 Run: `python -m pytest tests/test_memory.py tests/test_context.py -v`
 
@@ -2153,7 +2153,7 @@ git commit -m "feat(memory): govern memory and bound model context [agent: task-
 - Create: `tests/test_credentials.py`
 - Create: `tests/test_llm.py`
 
-- [ ] **Step 1：写假凭据后端和不回显红灯测试**
+- [x] **Step 1：写假凭据后端和不回显红灯测试**
 
 ```python
 # tests/test_credentials.py
@@ -2173,13 +2173,13 @@ def test_credentials_lifecycle_never_returns_secret_in_status() -> None:
     assert service.status("default").exists is False
 ```
 
-- [ ] **Step 2：运行凭据测试并确认红灯**
+- [x] **Step 2：运行凭据测试并确认红灯**
 
 Run: `python -m pytest tests/test_credentials.py -v`
 
 Expected: FAIL，凭据模块不存在。
 
-- [ ] **Step 3：实现 Protocol、Keyring 和内存后端**
+- [x] **Step 3：实现 Protocol、Keyring 和内存后端**
 
 ```python
 # src/coding_agent_harness/credentials.py
@@ -2256,7 +2256,7 @@ class CredentialService:
 
 CLI 使用 `typer.prompt("API Key", hide_input=True)`；只有 `get_for_client` 返回给 LLM 客户端且不得日志化。
 
-- [ ] **Step 4：写 Mock 观察反馈和 HTTP tool calling 红灯测试**
+- [x] **Step 4：写 Mock 观察反馈和 HTTP tool calling 红灯测试**
 
 ```python
 # tests/test_llm.py
@@ -2286,7 +2286,7 @@ def test_openai_client_parses_native_tool_call(model_context) -> None:
     assert client.next_action(model_context).tool == "finish"
 ```
 
-- [ ] **Step 5：实现 LLMClient、ScriptedMock 和 httpx 适配器**
+- [x] **Step 5：实现 LLMClient、ScriptedMock 和 httpx 适配器**
 
 ```python
 # src/coding_agent_harness/llm.py
@@ -2360,7 +2360,7 @@ class OpenAICompatibleClient:
 
 `tool_schemas()` 从各 Action 的 `model_json_schema()` 生成函数 schema 并移除常量 `tool` 字段。HTTP 连接/超时/5xx 最多重试 2 次并使用可注入 sleep；401/403/永久 4xx 不重试；异常文本先脱敏再转 `LLMError`。协议纠正次数由 Task 10 Engine 统一管理。
 
-- [ ] **Step 6：运行凭据与 LLM 离线测试并提交**
+- [x] **Step 6：运行凭据与 LLM 离线测试并提交**
 
 Run: `python -m pytest tests/test_credentials.py tests/test_llm.py -v`
 
@@ -2384,7 +2384,7 @@ git commit -m "feat(llm): add secure credentials and injectable clients [agent: 
 - Modify: `tests/conftest.py`
 - Create: `tests/test_engine.py`
 
-- [ ] **Step 1：写 mock 失败反馈闭环红灯测试**
+- [x] **Step 1：写 mock 失败反馈闭环红灯测试**
 
 ```python
 # tests/test_engine.py
@@ -2406,7 +2406,7 @@ def test_engine_feeds_validation_failure_back_before_success(engine_fixture) -> 
     assert engine_fixture.store.final_validations_passed(engine_fixture.session_id)
 ```
 
-- [ ] **Step 2：写 DENY、审批暂停和伪完成红灯测试**
+- [x] **Step 2：写 DENY、审批暂停和伪完成红灯测试**
 
 ```python
 def test_denied_action_never_reaches_dispatcher(engine_fixture) -> None:
@@ -2433,13 +2433,13 @@ def test_approval_request_is_persisted_before_pause(engine_fixture) -> None:
     assert engine_fixture.dispatcher.call_count == 0
 ```
 
-- [ ] **Step 3：运行主循环测试并确认红灯**
+- [x] **Step 3：运行主循环测试并确认红灯**
 
 Run: `python -m pytest tests/test_engine.py -v`
 
 Expected: FAIL，主循环模块不存在。
 
-- [ ] **Step 4：实现依赖容器、结果和循环骨架**
+- [x] **Step 4：实现依赖容器、结果和循环骨架**
 
 ```python
 # src/coding_agent_harness/engine.py
@@ -2552,11 +2552,11 @@ class HarnessEngine:
 
 `policy.authorize` 必须先写 `PolicyDecision` 和 audit outbox，再 flush JSONL，最后才返回 `AuthorizationGrant`；任何持久化/flush 失败返回 DENY 或暂停内部错误，绝不调用 Dispatcher。
 
-- [ ] **Step 5：实现协议纠正、预算时间和错误边界**
+- [x] **Step 5：实现协议纠正、预算时间和错误边界**
 
 补充测试并实现：第二次连续协议错误进入 `PAUSED_PROTOCOL_ERROR`；达到 steps、LLM calls、连续失败、重复动作、会话时长中任一上限进入 `PAUSED_LIMIT_REACHED`；认证 4xx 进入 `PAUSED_INTERNAL_ERROR`；取消/不可恢复错误进入 `NEEDS_USER_DECISION` 并提供 changes show/keep/rollback 命令。异常持久化前调用脱敏器。
 
-- [ ] **Step 6：运行主循环测试和核心回归并提交**
+- [x] **Step 6：运行主循环测试和核心回归并提交**
 
 Run: `python -m pytest tests/test_engine.py tests/test_policy.py tests/test_approvals.py tests/test_validation.py -v`
 
@@ -2587,7 +2587,7 @@ git commit -m "feat(engine): run governed feedback loop [agent: task-10-worker]"
 - Create: `tests/test_recovery.py`
 - Create: `tests/test_cli.py`
 
-- [ ] **Step 1：写跨进程恢复、漂移失效和独占锁红灯测试**
+- [x] **Step 1：写跨进程恢复、漂移失效和独占锁红灯测试**
 
 ```python
 # tests/test_recovery.py
@@ -2621,13 +2621,13 @@ def test_second_writer_for_same_workspace_is_rejected(app_factory, workspace) ->
     first.release()
 ```
 
-- [ ] **Step 2：运行恢复测试并确认红灯**
+- [x] **Step 2：运行恢复测试并确认红灯**
 
 Run: `python -m pytest tests/test_recovery.py -v`
 
 Expected: FAIL，session service 不存在。
 
-- [ ] **Step 3：实现应用数据目录、锁和恢复前复查**
+- [x] **Step 3：实现应用数据目录、锁和恢复前复查**
 
 ```python
 # src/coding_agent_harness/session_service.py
@@ -2715,7 +2715,7 @@ def create_control_application(
 
 `EngineFactory.create` 在规范化 workspace 后按同一个组合路径构造 Guard、PolicyGateway、FileTools、CommandRunner、ValidationPipeline、ContextBuilder、Dispatcher 和 HarnessEngine。测试通过参数注入 MemoryCredentialBackend、ScriptedMock 工厂与 UTC fake clock；生产默认使用 Keyring 与 OpenAI-compatible 工厂。
 
-- [ ] **Step 4：写 CLI 命令、退出码和隐藏凭据红灯测试**
+- [x] **Step 4：写 CLI 命令、退出码和隐藏凭据红灯测试**
 
 ```python
 # tests/test_cli.py
@@ -2739,7 +2739,7 @@ def test_credentials_status_never_echoes_secret(cli_app, credential_backend) -> 
     assert "sk-secret" not in result.stdout
 ```
 
-- [ ] **Step 5：实现全部命令表面和稳定退出码**
+- [x] **Step 5：实现全部命令表面和稳定退出码**
 
 ```python
 # src/coding_agent_harness/cli.py（应用服务调用表面）
@@ -2879,7 +2879,7 @@ def memory_delete(ctx: typer.Context, entry_id: str) -> None:
 
 Task 11 完成 `run/sessions/approvals/changes/credentials/memory`。`report export` 在 Task 12 接入，`demo governance` 在 Task 13 接入；顶层 help 中的命令组始终存在。`create_control_application` 只能组装本地应用服务，不接收 Web 请求。Typer 自身参数错误返回 2；策略拒绝型命令返回 10；暂停返回 20；验证失败/待用户决定返回 30；未分类内部错误由顶层异常映射返回 40。危险确认默认否，缺少 `--yes` 时交互输入仅明确 `y/yes` 才同意。
 
-- [ ] **Step 6：运行恢复和 CLI 测试并提交**
+- [x] **Step 6：运行恢复和 CLI 测试并提交**
 
 Run: `python -m pytest tests/test_recovery.py tests/test_cli.py -v`
 
@@ -2907,7 +2907,7 @@ git commit -m "feat(cli): resume and control governed sessions [agent: task-11-w
 - Modify: `tests/conftest.py`
 - Create: `tests/test_reporting.py`
 
-- [ ] **Step 1：写报告 schema 与脱敏红灯测试**
+- [x] **Step 1：写报告 schema 与脱敏红灯测试**
 
 ```python
 # tests/test_reporting.py
@@ -2935,13 +2935,13 @@ def test_viewer_uses_text_content_not_html_execution() -> None:
     assert "fetch(" in script
 ```
 
-- [ ] **Step 2：运行报告测试并确认红灯**
+- [x] **Step 2：运行报告测试并确认红灯**
 
 Run: `python -m pytest tests/test_reporting.py -v`
 
 Expected: FAIL，报告模块和 Web 资源不存在。
 
-- [ ] **Step 3：实现最小导出模型和原子 JSON 写入**
+- [x] **Step 3：实现最小导出模型和原子 JSON 写入**
 
 ```python
 # src/coding_agent_harness/reporting.py
@@ -2990,7 +2990,7 @@ def report_export(ctx: typer.Context, session_id: str, output: Path) -> None:
     typer.echo(str(_services(ctx).reports.export(session_id, output)))
 ```
 
-- [ ] **Step 4：使用 Open Design `web-prototype` + Neutral Modern 实现查看器**
+- [x] **Step 4：使用 Open Design `web-prototype` + Neutral Modern 实现查看器**
 
 页面结构固定为：顶部会话/状态摘要；左侧时间线；右侧策略判定、审批和验证详情；窄屏改为单列。颜色至少包含中性灰、绿色成功、琥珀色审批、红色拒绝，避免单一蓝紫色主题。所有报告值通过 `node.textContent = value` 填入；只 `fetch('./mock-report.json')`，无表单、按钮控制、API base URL、WebSocket 或 SQLite 代码。
 
@@ -3017,7 +3017,7 @@ fetch("./mock-report.json").then((response) => response.json()).then(render).cat
 });
 ```
 
-- [ ] **Step 5：运行单测和桌面/移动视觉验证**
+- [x] **Step 5：运行单测和桌面/移动视觉验证**
 
 Run: `python -m pytest tests/test_reporting.py -v`
 
@@ -3027,7 +3027,7 @@ Run from `src/coding_agent_harness/web`: `python -m http.server 8765`
 
 使用浏览器 Skill 截图检查 1440x900、768x1024、390x844：页面非空、无文本溢出/重叠、下一段内容可见、报告恶意字符串 `<img src=x onerror=alert(1)>` 只显示文本不执行。开发服务器验证完成后停止。
 
-- [ ] **Step 6：提交报告与查看器**
+- [x] **Step 6：提交报告与查看器**
 
 ```powershell
 git add src/coding_agent_harness/reporting.py src/coding_agent_harness/application.py src/coding_agent_harness/cli.py src/coding_agent_harness/web tests/conftest.py tests/test_reporting.py
@@ -3047,7 +3047,7 @@ git commit -m "feat(report): export safe static session viewer [agent: task-12-w
 - Create: `tests/test_integration.py`
 - Create: `tests/test_demo.py`
 
-- [ ] **Step 1：写真实临时 Python 仓库的闭环红灯测试**
+- [x] **Step 1：写真实临时 Python 仓库的闭环红灯测试**
 
 ```python
 # tests/test_integration.py
@@ -3079,17 +3079,17 @@ def test_scripted_mock_repairs_failing_python_repository(app_factory, tmp_path: 
     assert "return 2" in (tmp_path / "calc.py").read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2：运行集成测试并确认红灯**
+- [x] **Step 2：运行集成测试并确认红灯**
 
 Run: `python -m pytest tests/test_integration.py -v`
 
 Expected: FAIL，应用组合工厂或主循环集成尚未满足断言。
 
-- [ ] **Step 3：建立正式 Composition Root 并跑通 mock 闭环**
+- [x] **Step 3：建立正式 Composition Root 并跑通 mock 闭环**
 
 Task 11 的 `application.py:create_control_application` 是唯一组合根。Task 13 只在其上增加 `DemoFacade`，不得重新创建第二套 StateStore/Policy/Dispatcher。生产 CLI 和测试使用相同组装路径，测试只替换 app_data、LLM、凭据和时钟。
 
-- [ ] **Step 4：写三幕机制演示红灯测试**
+- [x] **Step 4：写三幕机制演示红灯测试**
 
 ```python
 # tests/test_demo.py
@@ -3109,7 +3109,7 @@ def test_governance_demo_proves_required_mechanisms(tmp_path) -> None:
     assert report.scenes[2].replay_decision == "DENY"
 ```
 
-- [ ] **Step 5：实现确定性 demo 场景和 CLI 输出**
+- [x] **Step 5：实现确定性 demo 场景和 CLI 输出**
 
 ```python
 # src/coding_agent_harness/demo.py（结果契约）
@@ -3144,7 +3144,7 @@ def demo_governance(ctx: typer.Context) -> None:
     raise typer.Exit(code=0 if all(scene.passed for scene in result.scenes) else 1)
 ```
 
-- [ ] **Step 6：运行机制演示和全量核心测试并提交**
+- [x] **Step 6：运行机制演示和全量核心测试并提交**
 
 Run: `python -m pytest tests/test_demo.py tests/test_integration.py -v`
 
@@ -3180,7 +3180,7 @@ git commit -m "test(demo): prove governance and feedback mechanisms [agent: task
 - Modify: `pyproject.toml`
 - Modify: `tests/test_package.py`
 
-- [ ] **Step 1：写构建元数据和文档完整性红灯测试**
+- [x] **Step 1：写构建元数据和文档完整性红灯测试**
 
 ```python
 # tests/test_package.py（追加）
@@ -3196,13 +3196,13 @@ def test_required_delivery_files_and_readme_sections_exist() -> None:
     assert "unit-test" in Path(".gitlab-ci.yml").read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2：运行交付测试并确认红灯**
+- [x] **Step 2：运行交付测试并确认红灯**
 
 Run: `python -m pytest tests/test_package.py::test_required_delivery_files_and_readme_sections_exist -v`
 
 Expected: FAIL，缺少 CI/脚本或 README 章节。
 
-- [ ] **Step 3：实现一键验证和双 CI**
+- [x] **Step 3：实现一键验证和双 CI**
 
 ```makefile
 .PHONY: test lint typecheck build verify
@@ -3254,17 +3254,17 @@ unit-test:
 
 `scripts/verify.ps1` 依次调用 pytest、ruff、mypy、build 并在任一 `$LASTEXITCODE` 非 0 时退出；`verify.sh` 使用 `set -eu` 执行同样命令。脚本不得读取 `.env` 或真实凭据。
 
-- [ ] **Step 4：配置静态 Pages 和包内 Web 资源**
+- [x] **Step 4：配置静态 Pages 和包内 Web 资源**
 
 在 `pyproject.toml` 中把 `src/coding_agent_harness/web/*` 加入 wheel。Pages workflow 只上传该目录，不启动 Harness 后端；权限只含 `contents: read`、`pages: write`、`id-token: write`。部署前运行 `tests/test_reporting.py`，公开 JSON 固定为 scripted mock 数据。
 
-- [ ] **Step 5：完善忽略规则、换行和 README**
+- [x] **Step 5：完善忽略规则、换行和 README**
 
 `.gitignore` 追加 `.venv/`、`dist/`、`build/`、`*.egg-info/`、`.mypy_cache/`、`.ruff_cache/`、`.coverage`、`htmlcov/`、`.cah/`、`*.db`、`*.sqlite*`、私有报告与备份目录；保留公开 `mock-report.json`。`.gitattributes` 设 `* text=auto`、Python/Markdown/YAML/HTML/CSS/JS 为 LF、PowerShell 为 CRLF。
 
 README 必须给出：`pipx install`/`pip install`、mock demo、真实 `cah run`、全部子命令、安全录入/查看/更新/清除 Key、应用数据目录、CLI 与静态 WebUI 边界、pytest 以当前 OS 权限执行的风险、Windows 3.13 主平台、Linux CI、GitHub Pages URL、wheel/sdist 和最终 ZIP 命令。
 
-- [ ] **Step 6：运行交付验证并提交**
+- [x] **Step 6：运行交付验证并提交**
 
 Run: `python -m pytest tests/test_package.py tests/test_reporting.py -v`
 
@@ -3603,4 +3603,22 @@ git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已合并为 `9bab6be9db3556dd7f2f4e542ef9a5ec82a0acb0`。该 merge commit 的 main CI、distribution artifact 与 Static WebUI/Pages workflow 均为 success，公开 Pages 已完成桌面/移动只读核验，AC-01 至 AC-18 和六维最低机制全部关闭。课程 ZIP 使用 `git archive` 从最终跟踪树生成并在外部记录精确散列；受保护的主工作区 `REFLECTION.md` 与 `tests/test_file_tools.py` 用户改动未进入任何项目提交。
+PR-04 阶段状态：Task 1-15 已完成并通过规格/质量审查；PR #4 已合并为 `9bab6be9db3556dd7f2f4e542ef9a5ec82a0acb0`。该 merge commit 的 main CI、distribution artifact 与 Static WebUI/Pages workflow 均为 success，公开 Pages 已完成桌面/移动只读核验，AC-01 至 AC-18 和六维最低机制全部关闭。课程 ZIP 使用 `git archive` 从最终跟踪树生成并在外部记录精确散列；当时受保护的主工作区 `REFLECTION.md` 与 `tests/test_file_tools.py` 用户改动未进入 PR-04。后续授权与当前状态见下一节。
+
+## 11. Post-delivery 最终修订（2026-08-14）
+
+负责人在四个 PR 全部合并后明确授权直接修改、提交并推送 `main`，不为本轮建立新分支或 PR。
+本轮不增加产品范围，而是关闭最终审查发现的纵向组装缺口：正式 `cah run` 接入可信用户 TOML、
+项目 TOML、CLI 预算收紧、Keyring 与 OpenAI-compatible 客户端；项目源码根和验证器在创建会话前
+经过工作区/Policy 安全校验；验证器超时与上下文预算使用解析后的配置。`sessions resume` 现在能
+在重启后恢复最近审批，批准时重建绑定动作、单次消费并通过同一 Dispatcher 执行，拒绝/过期/
+失效时形成策略反馈。
+
+新增 TDD 证据包括：`load_user_config` 缺失 ImportError、应用接线 6 个失败、ContextBuilder
+源码根参数失败、批准恢复时 `illegal_session_transition`、命令超时越过会话预算，以及可选验证器
+错误关闭必需完成门禁。最终新鲜门禁为 `371 passed,
+3 skipped`，Ruff、strict mypy（23 个源码文件）与 wheel/sdist build 全部通过；3 个 skip 仍只
+来自 Windows `WinError 1314` 符号链接权限。`REFLECTION.md` 已在负责人新授权后完成并标注 Codex
+辅助；README 已补真实配置流程与第三方许可证。运行时与行为测试提交为
+`aedb9c80bd980461fdfc9fb7d8b38a7e8173931d`；最终远端同步证据由 push 后的 Git/Actions
+外部状态确认，避免在提交前预填。

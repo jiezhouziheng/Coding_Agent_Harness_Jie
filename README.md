@@ -38,18 +38,26 @@ pipx install coding-agent-harness-jie
 cah demo governance
 ```
 
-当前 CLI 提供真实任务的命令表面，但尚未接入生产 OpenAI-compatible factory 或配置 wiring。未传 `--mock-script` 时使用空的 `ScriptedMockLLM`，会安全暂停并报告 `script_exhausted`；这不是已运行的真实 LLM 结果。离线可重复运行应显式提供 mock script：
+未传 `--mock-script` 时，`cah run` 会读取分层配置和操作系统 Keyring，创建
+`OpenAICompatibleClient` 并调用兼容的 `/chat/completions` 原生 tool-calling 接口。先配置凭据，再运行真实任务：
+
+```text
+cah credentials set --profile default
+cah run --workspace . --task "修复当前失败的测试"
+```
+
+离线可重复运行应显式提供 mock script。mock 模式不会读取 Keyring；脚本动作耗尽时会安全暂停并报告 `script_exhausted`：
 
 ```text
 cah run --workspace . --task "检查待处理的代码变更" --mock-script path/to/script.json
 ```
 
-真实模型接入和凭据 wiring 仍属于后续工作，不能把上述命令写成已经访问在线服务。
+本仓库没有使用真实供应商凭据执行 smoke test，不能把离线测试结果表述成真实模型效果。供应商必须兼容 OpenAI chat completions 的原生工具调用结构；不兼容该协议时客户端会 fail-closed。
 
 所有 CLI 命令如下：
 
 ```text
-cah run --workspace <path> --task "<task>" [--mock-script <path>]
+cah run --workspace <path> --task "<task>" [--mock-script <path>] [预算收紧选项]
 cah sessions list
 cah sessions show <session-id>
 cah sessions resume <session-id>
@@ -71,7 +79,10 @@ cah report export <session-id> <output>
 cah demo governance
 ```
 
-命令组直接运行时会显示帮助。`cah report export` 生成的是本地报告；退出码反映最终会话状态。
+预算收紧选项包括 `--max-steps`、`--max-llm-calls`、`--max-consecutive-failures`、
+`--max-repeated-action`、`--command-timeout-seconds`、`--session-timeout-minutes` 和
+`--max-observation-bytes`。这些参数只能降低较高信任层给出的上限。命令组直接运行时会显示帮助。
+`cah report export` 生成的是本地报告；退出码反映最终会话状态。
 
 ## 凭据管理
 
@@ -83,6 +94,43 @@ cah credentials status --profile default
 cah credentials update --profile default
 cah credentials clear --profile default
 ```
+
+## 分层配置
+
+可信用户配置位于 Windows `%LOCALAPPDATA%\CodingAgentHarness\config.toml`，非 Windows 位于
+`~/.local/share/CodingAgentHarness/config.toml`。配置只保存供应商地址、模型名、凭据 profile
+和预算，不保存 API Key：
+
+```toml
+provider_url = "https://api.openai.com/v1"
+model = "gpt-5-mini"
+credential_profile = "default"
+
+[budgets]
+max_steps = 20
+max_llm_calls = 12
+command_timeout_seconds = 120
+```
+
+目标仓库可以创建 `harness.toml`，声明源码根、验证器和更严格的预算：
+
+```toml
+source_roots = ["src", "tests"]
+
+[[validators]]
+validator_id = "pytest"
+program = "python"
+args = ["-m", "pytest", "-q"]
+stages = ["baseline", "fast", "final"]
+required = true
+
+[budgets]
+max_steps = 10
+max_llm_calls = 8
+```
+
+信任顺序为内置硬上限、用户配置、项目配置、CLI/会话参数；后三层只能逐层收紧。项目验证器必须
+同时通过内置命令策略，shell、网络工具、越界路径和带写副作用的危险参数会在创建会话前被拒绝。
 
 ## 凭据安全
 
@@ -101,6 +149,22 @@ scripts/verify.sh           Linux/macOS shell 质量门禁
 .github/workflows/          GitHub CI 与静态 Pages
 .gitlab-ci.yml              GitLab unit-test 与分发 artifact
 ```
+
+## 第三方依赖与许可证
+
+项目没有复制第三方项目源码；以下直接依赖通过 Python 包管理器安装，版权和许可证归各自项目所有，
+具体文本以安装包附带的许可证为准。
+
+| 用途 | 依赖 | 许可证 |
+|---|---|---|
+| HTTP 客户端 | httpx | BSD-3-Clause |
+| 系统凭据存储 | keyring | MIT |
+| 严格数据模型 | pydantic | MIT |
+| CLI | typer | MIT |
+| 构建 | build、hatchling | MIT |
+| 测试与覆盖率 | pytest、pytest-cov | MIT |
+| 类型与静态检查 | mypy、ruff | MIT |
+| CI 配置解析测试 | PyYAML | MIT |
 
 ## 静态 WebUI
 
@@ -126,7 +190,8 @@ python -m build --no-isolation
 
 ## 已知限制
 
-- `cah run` 当前默认使用空 `ScriptedMockLLM` 并以 `script_exhausted` 暂停；生产 OpenAI-compatible factory/config wiring 尚未实现，不能据此声称真实模型已运行。
+- 生产组装已接入 OpenAI-compatible 客户端、分层 TOML 与 Keyring，但只实现原生 chat completions tool calling；本项目未用真实供应商执行 smoke test，不对所有兼容供应商作效果或协议一致性承诺。
+- `--mock-script` 是离线确定性入口；脚本动作耗尽会以 `script_exhausted` 暂停，不代表真实模型结果。
 - Keyring 后端由操作系统提供，远程 CI 只运行离线测试，不读取个人凭据。
 - 静态 WebUI 只展示固定 mock 报告，不是实时控制台，也不能审批、执行命令或访问本地数据库。
 - Windows Python 3.13 是主要开发平台；Linux 3.13 是 GitHub/GitLab 的 CI 配置目标，其中 GitHub Actions 的 Python 3.13 `unit-test` 已真实通过。GitLab 使用同一命令合同，但本项目未声明已在 GitLab runner 上执行。
