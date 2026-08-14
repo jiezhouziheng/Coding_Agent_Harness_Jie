@@ -247,10 +247,37 @@ Superpowers 假设：先把歧义显式化，能减少实现返工。这个假�
 
 - `SPEC.md`：已根据全部批准设计写入中文，并于 2026-08-11 通过负责人审阅。
 - `SPEC_PROCESS.md`：已记录 brainstorming、计划与 fresh Codex 替代冷读审查；实现期间继续更新。
-- `PLAN.md`：已在 SPEC 获批后使用 `superpowers:writing-plans` 生成中文实施计划，等待负责人审阅。
-- `AGENT_LOG.md`：已初始化；从计划阶段开始实时追加，在每个任务后继续记录。
-- `REFLECTION.md`：文件已存在但保持为空。最终反思由学生根据真实证据完成；AI 只能提供提纲或明确披露的润色帮助。
-- 实现源码：尚未开始，符合设计门禁。
+- `PLAN.md`：已获负责人批准并按四个 PR 波次执行；Task 1-14 已有真实提交，Task 15 本地验收证据已回填。
+- `AGENT_LOG.md`：持续记录到 Task 15 本地验收；远端 CI/Pages/PR/ZIP 证据仍待真实操作后追加。
+- `REFLECTION.md`：负责人主工作区存在 staged 用户版本；PR04 未读取、未修改、未取消暂存、未提交。
+- 实现源码：Task 1-14 已完成；2026-08-14 本地 `verify.ps1`、治理演示、安全回归、扫描和 wheel 安装验证均通过。
+
+### Task 15 本地交付验证
+
+Task 15 是验证任务，按计划豁免人为制造 RED。新鲜 `scripts/verify.ps1` 在 Python 3.13.11
+下得到 `352 passed, 3 skipped`；3 个 skip 均为 Windows `WinError 1314` 符号链接权限，
+Ruff、strict mypy（23 个源码文件）和 no-isolation build 全部通过。指定治理回归为
+`139 passed`，直接 CLI demo 和安装 wheel 后的 demo 均为三幕 PASS，且输出明确表明未使用网络或
+真实 Keyring。
+
+最初把 pytest basetemp 放在仓库根下时，Ruff 真实扫描到测试夹具故意生成的非法
+`pyproject.toml`；改为不存在的嵌套 `.pytest_cache/task15-verify` 又触发 pytest
+`FileNotFoundError`。根因确认后仅调整进程级 `PYTEST_ADDOPTS` 为 Ruff 默认排除且 pytest 可直接
+创建的 `.pytest_cache`，完整门禁随即通过；没有为环境问题修改生产代码或验证脚本。
+
+修正后的大小写敏感 tracked-text 凭据扫描恰好命中 `PLAN.md:2283` 的一个公开假 fixture：
+`provider.invalid`，且 `api_key` 字段的值为 `test-secret`；真实或未解释凭据为 0。计划内/扩展 tracked
+敏感产物路径扫描为 0 命中。wheel 与 sdist 各一个并包含四个静态 WebUI 资源；本地 wheel 在 `PIP_NO_INDEX=1` 的唯一 TEMP venv 中以 `--no-deps`
+安装，导入路径确认位于该 venv 的 `site-packages`，验证后临时目录已安全删除。远端 GitHub
+Actions、artifact、Pages URL、PR 和课程 ZIP 尚未在本阶段验证，因此没有写入推测结果。
+
+独立规格审查和质量审查最初均返回 `CHANGES REQUIRED`：凭据扫描命令存在 PowerShell 假阴性，
+sdist 精确散列是会被后续文档修改改变的自引用快照，SPEC 状态也过早写成全部实现完成。本轮已
+修正三项表述与证据。质量复审已经 `APPROVED`；规格复审又发现 PLAN Step 3 仍把不可靠的
+`git grep` 作为 Run/Expected 合同，现已明确 supersede 旧命令并加入只读取 tracked 文本后缀、
+使用大小写敏感 `Select-String` 且自带假 fixture 分类断言的可复制 PowerShell scanner。该修复
+完成时保持等待规格再次复审；最终规格复审现已 `APPROVED`，质量复审同样为 `APPROVED`；两项最终复审均
+确认没有遗留 finding。远端 CI/Pages/PR 与 ZIP 状态不属于本地复审结论，继续保持未验证。
 
 ### PLAN 生成与自审
 

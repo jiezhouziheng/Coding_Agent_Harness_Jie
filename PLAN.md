@@ -202,8 +202,8 @@ fixture 不得读取真实用户目录、真实 Keyring、环境中的 API Key �
 | 11 | 持久恢复、漂移处理与 CLI | PR-03 | P0 | 10 | 已合并 | `8c6d035` |
 | 12 | 脱敏报告与静态只读 WebUI | PR-03 | P1 | 4 | 已合并 | `54f74a6` |
 | 13 | mock 集成测试与治理机制演示 | PR-03 | P0 | 11,12 | 已合并 | `a90d95a` |
-| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | 见本次 Task 14 提交 |
-| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 未执行 | - |
+| 14 | CI、打包、Pages 与 README | PR-04 | P1 | 13 | 已完成；规格/质量审查 APPROVED | `79fb0cd89849cafe003a991542343ea9bfee1812` |
+| 15 | 全量验收、凭据扫描与交付 ZIP | PR-04 | P0 | 14 | 本地验收与两阶段复审完成；远端 CI/Pages、PR、ZIP 待主控核验 | 本提交（完整 hash 由外部 PR 证据回填） |
 
 ## 6. 替代冷启动审查 - 已执行
 
@@ -3298,13 +3298,18 @@ git commit -m "build: add CI packaging and delivery docs [agent: task-14-worker]
 - Create: GitHub PR/CI/Pages 记录（外部状态，不伪造）
 - Create: `../Coding_Agent_Harness_Jie-2026-08-13.zip`（由 Git 跟踪内容生成）
 
-- [ ] **Step 1：运行完整本地质量门禁**
+- [x] **Step 1：运行完整本地质量门禁**
 
 Run: `powershell -ExecutionPolicy Bypass -File scripts/verify.ps1`
 
 Expected: pytest 0 failures、ruff 0 errors、mypy 0 errors、build exit code 0。
 
-- [ ] **Step 2：运行机制演示和关键安全回归**
+2026-08-14 新鲜证据：在 Python 3.13.11 的 PR04 `.venv` 下执行脚本，使用
+`PYTEST_ADDOPTS="--basetemp=.pytest_cache -p no:cacheprovider -ra"` 绕开 Windows 默认
+TEMP ACL；结果为 `352 passed, 3 skipped`，3 个 skip 均为 `WinError 1314` 符号链接权限，
+Ruff 通过、strict mypy 对 23 个源码文件通过，wheel 与 sdist 构建 exit code 0。
+
+- [x] **Step 2：运行机制演示和关键安全回归**
 
 Run: `python -m coding_agent_harness.cli demo governance`
 
@@ -3314,17 +3319,66 @@ Run: `python -m pytest tests/test_policy.py tests/test_approvals.py tests/test_j
 
 Expected: 全部 PASS。
 
-- [ ] **Step 3：执行仓库凭据与敏感产物扫描**
+2026-08-14 新鲜证据：直接 CLI 演示 exit code 0，三幕均 `passed=true`，并明确输出
+`network_used=false`、`real_keyring_used=false`；指定的 policy、approval、journal、recovery、
+integration 回归为 `139 passed`。
 
-Run: `git grep -n -I -E "(sk-[A-Za-z0-9_-]{12,}|api[_-]?key[[:space:]]*=[[:space:]]*['\"][^'\"]+|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)"`
+- [x] **Step 3：执行仓库凭据与敏感产物扫描**
 
-Expected: exit code 1 且无匹配；若命中测试假值，只允许明显的 `sk-secret`/`test-secret`，并逐条确认不是真实凭据。
+Initial Run（已 superseded）：`git grep -n -I -E "(sk-[A-Za-z0-9_-]{12,}|api[_-]?key[[:space:]]*=[[:space:]]*['\"][^'\"]+|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)"`
+
+该初始命令已在 Windows PowerShell 上验证会因参数/引号传递产生假阴性，不再作为 Task 15
+验收命令或完成证据。authoritative tracked-text scanner 如下；只允许明确文本后缀以及
+`Makefile`、`.gitignore`、`.gitattributes` 三个文本文件名，因此 PDF 和常见二进制不会被读取：
+
+```powershell
+$credentialPattern = 'sk-[A-Za-z0-9_-]{12,}|api[_-]?key[ \t]*=[ \t]*[''"][^''"\r\n]+|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY'
+$textExtensions = @('.md', '.py', '.toml', '.yml', '.yaml', '.json', '.html', '.css', '.js', '.ps1', '.sh', '.txt')
+$textFileNames = @('Makefile', '.gitignore', '.gitattributes')
+$trackedText = @(
+    git ls-files | Where-Object {
+        $extension = [IO.Path]::GetExtension($_).ToLowerInvariant()
+        ($textFileNames -contains [IO.Path]::GetFileName($_)) -or
+            ($textExtensions -contains $extension)
+    }
+)
+$credentialMatches = @(
+    foreach ($path in $trackedText) {
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            Select-String -LiteralPath $path -Pattern $credentialPattern -CaseSensitive -AllMatches -Encoding UTF8
+        }
+    }
+)
+$unexplainedMatches = @(
+    $credentialMatches | Where-Object {
+        -not ($_.Path.EndsWith('PLAN.md') -and $_.LineNumber -eq 2283 -and
+            $_.Line.Contains('provider.invalid') -and $_.Line.Contains('test-secret'))
+    }
+)
+if ($credentialMatches.Count -ne 1 -or $unexplainedMatches.Count -ne 0) {
+    throw "Credential scan mismatch: matches=$($credentialMatches.Count), unexplained=$($unexplainedMatches.Count)"
+}
+Write-Output 'PLAN.md:2283:classified_fake_fixture'
+Write-Output "tracked_text_matches=$($credentialMatches.Count)"
+Write-Output "unexplained_or_real=$($unexplainedMatches.Count)"
+```
+
+Expected: 输出 `PLAN.md:2283:classified_fake_fixture`、`tracked_text_matches=1` 和
+`unexplained_or_real=0`。唯一命中必须同时包含保留域名 `provider.invalid` 和假值
+`test-secret`；不得存在真实或未解释凭据。
 
 Run: `git ls-files | rg "(^|/)(\.env|state\.db|audit/|backups/|reports/private/)"`
 
 Expected: 无输出。
 
-- [ ] **Step 4：验证构建包在隔离解释器可运行**
+2026-08-14 修正后新鲜证据：对 `git ls-files` 返回的非 PDF、非二进制后缀文件逐个执行
+大小写敏感 `Select-String`，凭据模式恰好 1 个已分类假 fixture 命中：`PLAN.md:2283`
+使用 `https://provider.invalid/v1`，且 `api_key` 字段的值为 `test-secret`；真实或未解释凭据为 0。
+计划内 tracked-file 敏感路径扫描 exit code 1、0 命中。补充扫描 `.env*`、SQLite sidecar、审计、备份、私有报告、
+pytest/mypy/Ruff 缓存、`__pycache__`、`dist/build/egg-info` 和私钥文件，同样 exit code 1、
+0 命中。
+
+- [x] **Step 4：验证构建包在隔离解释器可运行**
 
 ```powershell
 $verifyEnv = Join-Path $env:TEMP "cah-wheel-verify-20260813"
@@ -3336,13 +3390,33 @@ python -m venv --system-site-packages $verifyEnv
 
 Expected: wheel 安装成功，三幕演示全部 PASS。验证后仅在确认 `$verifyEnv` 位于 `$env:TEMP` 下时删除该临时目录。
 
+2026-08-14 新鲜证据：`dist/` 中恰好一个 wheel 和一个 sdist，两者均包含
+`app.js`、`index.html`、`mock-report.json`、`styles.css`。在唯一 TEMP venv 中使用
+`--system-site-packages`、`PIP_NO_INDEX=1` 和 `pip install --no-deps` 安装 wheel；断言导入
+路径位于该 venv 的 `Lib/site-packages`、版本为 `0.1.0`、四个资源存在，安装后的
+`cah.exe demo governance` 三幕 PASS。精确临时 venv 经 TEMP 子路径校验后已删除。
+
 - [ ] **Step 5：确认远端 CI/Pages 与 PR 证据**
 
 检查最后一次 GitHub Actions `unit-test` 为 pass，构建 artifact 可下载；Pages URL 可公开打开 mock 报告；页面无控制 API。把 run URL、Pages URL、PR、执行智能体、人工修改和最终 commit 写入 `AGENT_LOG.md`，不得用本地结果冒充远端证据。
 
-- [ ] **Step 6：逐条关闭验收矩阵并更新过程文档**
+当前状态：尚未 push 或创建 PR，GitHub Actions、artifact、Pages URL 均未远端核验；由主控在
+远端操作后回填真实 URL 和状态。本地静态扫描确认没有 XMLHttpRequest、WebSocket、
+EventSource、SQLite、API/WS 路径、凭据/Keyring、表单、按钮或事件控制通道；唯一 `fetch`
+目标为同目录 `./mock-report.json`。
+
+- [x] **Step 6：逐条核对验收矩阵并更新过程文档（AC-17 远端部分仍待核验）**
 
 在下方 AC 映射表逐项附测试/命令证据；更新冷启动发现、修订 diff、各 task commit；只有全部 P0 和六维最低实现通过才把 SPEC 状态改为“已实现”。`REFLECTION.md` 只记录真实经历，不虚构个人感受。
+
+2026-08-14 独立规格审查和质量审查最初均为 `CHANGES REQUIRED`。审查指出三项文档证据问题：
+原凭据扫描在 PowerShell 参数传递下产生假阴性；写文档前的 sdist 精确散列会被后续文档内容
+自引用改变；SPEC 顶部状态提前宣称全部实现完成。本轮已分别改用逐 tracked 文本的大小写敏感
+扫描、移除非最终 artifact 大小/散列，并把 SPEC 状态限定为 Task 1-14 实现完成与 Task 15
+本地验收通过。质量复审已经 `APPROVED`；规格复审随后指出 Step 3 仍把旧 `git grep` 保留为
+Run/Expected 合同，本轮已明确 supersede 旧命令并加入上述可复制 scanner。该修复完成时保持
+等待规格再次复审，未提前写成 APPROVED；最终规格复审现已 `APPROVED`，质量复审同样为
+`APPROVED`；两项最终复审均确认无遗留 finding。
 
 - [ ] **Step 7：生成不覆盖旧文件的课程 ZIP**
 
@@ -3354,12 +3428,24 @@ git archive --format=zip --output=$archive HEAD
 
 Expected: ZIP 存在；解压清单包含源码、测试、SPEC/PLAN/SPEC_PROCESS/AGENT_LOG/README/REFLECTION、CI 和静态 WebUI，不含 `.git`、Key、本地数据库、审计、备份、缓存或私有报告。
 
-- [ ] **Step 8：完成分支并提交最终过程记录**
+`REFLECTION.md` 保护例外：该文件仅存在于负责人主工作区的 staged 用户改动中，不属于
+PR04 `HEAD`。本任务不得复制、提交、取消暂存或用 PR04 版本覆盖它；因此 `git archive HEAD`
+生成的 PR04 ZIP 应如实记录缺少该文件，而不能为满足旧清单将用户版本带入分支。只有负责人提供
+真实反思内容并再次明确授权后，才可改变这个例外。
+
+- [x] **Step 8：完成本地 Task 15 提交（远端分支收尾仍待 Step 5/7）**
 
 ```powershell
-git add PLAN.md AGENT_LOG.md SPEC.md SPEC_PROCESS.md README.md REFLECTION.md
-git commit -m "docs: finalize verified course delivery [agent: task-15-worker]" -m "人工修改：按 AGENT_LOG 最终记录"
+git add PLAN.md AGENT_LOG.md SPEC.md SPEC_PROCESS.md
+git commit -m "docs: finalize verified course delivery [agent: task15_verify]" -m "人工修改：无"
 ```
+
+上方暂存范围刻意排除受保护的 `REFLECTION.md`，也不重复提交 Task 14 已提交且 Task 15 未修改的
+`README.md`。
+
+完成证据：Task 15 的四份过程文档由本提交一次性提交，实际 subagent 为 `task15_verify`，
+人工修改为无。commit 完整 hash 无法在同一提交内容中自引用，将由提交后的 Git/PR 外部证据
+回填；本步骤不代表 Step 5 的远端 CI/Pages/PR 或 Step 7 的 ZIP 已完成。
 
 使用 `superpowers:finishing-a-development-branch` 选择合并/PR/保留策略；不得在未获得负责人授权时 push、merge 或删除 worktree。
 
@@ -3367,37 +3453,37 @@ git commit -m "docs: finalize verified course delivery [agent: task-15-worker]" 
 
 ## 7. SPEC 验收覆盖矩阵
 
-| AC | 实现任务 | 主要自动证据 |
-|---|---|---|
-| AC-01 | 3,4,7,11 | `test_security.py`、`test_storage.py`、`test_cli.py` |
-| AC-02 | 9,10,13 | `test_llm.py`、`test_integration.py` |
-| AC-03 | 2,4,5,10 | `test_models.py`、`test_policy.py`、`test_engine.py` |
-| AC-04 | 5-7,10 | 风险矩阵、文件工具、验证测试 |
-| AC-05 | 5,10,11,13 | `test_approvals.py`、机制演示第 3 幕 |
-| AC-06 | 5,10,13 | DENY 测试和 Dispatcher 调用次数 0 |
-| AC-07 | 7,10,13 | mock 上下文包含前次失败 |
-| AC-08 | 7,10 | final validator 失败时非 `SUCCEEDED` |
-| AC-09 | 5,10,11 | BudgetTracker、暂停退出码、changes 命令 |
-| AC-10 | 4,5,6,11 | 重启、指纹漂移、审批失效测试 |
-| AC-11 | 6,11 | 精准回滚和无关文件保护测试 |
-| AC-12 | 8 | 候选生命周期与最多 5 条检索 |
-| AC-13 | 3,5 | 分层配置与策略底线测试 |
-| AC-14 | 9,11 | 假凭据后端与 CLI 不回显测试 |
-| AC-15 | 12 | 报告 allowlist、XSS 静态检查、浏览器截图 |
-| AC-16 | 13 | `cah demo governance` 三幕 PASS |
-| AC-17 | 14,15 | verify 脚本和远端 `unit-test` pass |
-| AC-18 | 14,15 | wheel/sdist 构建、隔离 venv 安装与 demo |
+| AC | 实现任务 | 本轮新鲜证据 | 状态 |
+|---|---|---|---|
+| AC-01 | 3,4,7,11 | 全量门禁覆盖 `test_security.py`、`test_storage.py`、`test_cli.py::test_run_paused_prints_resume_commands` 和 integration 基线 | 本地 PASS |
+| AC-02 | 9,10,13 | `test_integration.py` PASS；直接 demo 明确 `network_used=false`、`real_keyring_used=false` | PASS |
+| AC-03 | 2,4,5,10 | `test_models.py`、`test_policy.py`、`test_engine.py` 全部进入 `352 passed` 门禁 | PASS |
+| AC-04 | 5-7,10 | 风险矩阵、`test_file_tools.py`、`test_validation.py` 全部通过 | PASS |
+| AC-05 | 5,10,11,13 | `test_approvals.py` 全部通过；demo 第三幕持久审批仅执行一次且重放 DENY | PASS |
+| AC-06 | 5,10,13 | `test_denied_action_never_reaches_dispatcher` PASS；demo 第一幕 DENY、执行和 Dispatcher 调用均为 0 | PASS |
+| AC-07 | 7,10,13 | `test_engine_feeds_validation_failure_back_before_success` PASS；demo 第二幕记录失败进入下一上下文 | PASS |
+| AC-08 | 7,10 | final validator 与 engine 完成门禁测试通过 | PASS |
+| AC-09 | 5,10,11 | BudgetTracker 快照/限额、engine 预算暂停、命令超时及 CLI 控制命令测试通过 | PASS |
+| AC-10 | 4,5,6,11 | 指定回归中 `tests/test_recovery.py` 3 项及审批漂移/重启测试通过 | PASS |
+| AC-11 | 6,11 | 指定回归中 `tests/test_journal.py` 4 项精准回滚/漂移/无关文件保护通过 | PASS |
+| AC-12 | 8 | `tests/test_memory.py` 7 项候选、证据激活、过滤和最多 5 条检索通过 | PASS |
+| AC-13 | 3,5 | `tests/test_config.py` 12 项分层收紧与 policy 项目命令收紧测试通过 | PASS |
+| AC-14 | 9,11 | 凭据生命周期 2 项和 CLI 不回显测试通过；tracked 文本扫描仅命中 `PLAN.md:2283` 的 `provider.invalid`/`test-secret` 假 fixture，真实或未解释凭据 0 命中 | PASS |
+| AC-15 | 12 | `tests/test_reporting.py` 3 项通过；主动控制通道扫描 0 命中，仅相对读取 mock JSON | 本地 PASS；Pages URL 待远端核验 |
+| AC-16 | 13 | 直接运行 `cah demo governance`，三幕均 `passed=true`、exit code 0 | PASS |
+| AC-17 | 14,15 | fresh `verify.ps1`：`352 passed, 3 skipped`，Ruff/mypy/build 全通过 | 本地 PASS；远端 `unit-test` 待核验 |
+| AC-18 | 14,15 | wheel/sdist 资源核验；TEMP venv 离线安装 wheel、site-packages 导入断言和安装后 demo 通过 | PASS |
 
 ## 8. 六维机制覆盖
 
-| 维度 | 最低可运行证据 | 深度证据 |
-|---|---|---|
-| 决策 | Task 10 自研循环与结构化停机 | 协议重试、预算、持久状态、完成门禁 |
-| 工具 | Task 6/7 文件和命令工具 | 原子替换、备份、回滚、输出/超时限制 |
-| 记忆 | Task 8 候选、批准、检索 | 证据激活、类型/项目/关键词/数量治理 |
-| 治理 | Task 5 三级策略 | 持久化审批、指纹、单次消费、漂移、审计 |
-| 反馈 | Task 7 三阶段验证 | Task 13 失败注入改变下一动作 |
-| 配置 | Task 3 TOML 严格模型 | 四层信任边界只能收紧 |
+| 维度 | 最低可运行证据 | 深度证据 | 2026-08-14 新鲜验收 |
+|---|---|---|---|
+| 决策 | Task 10 自研循环与结构化停机 | 协议重试、预算、持久状态、完成门禁 | engine/integration 纳入全量 PASS，demo 第二幕 PASS |
+| 工具 | Task 6/7 文件和命令工具 | 原子替换、备份、回滚、输出/超时限制 | file tools、command runner、journal 全部 PASS |
+| 记忆 | Task 8 候选、批准、检索 | 证据激活、类型/项目/关键词/数量治理 | memory 7 项全部 PASS |
+| 治理 | Task 5 三级策略 | 持久化审批、指纹、单次消费、漂移、审计 | policy/approval 关键回归 PASS；demo 第一、三幕 PASS |
+| 反馈 | Task 7 三阶段验证 | Task 13 失败注入改变下一动作 | validation/engine PASS；demo 第二幕确认反馈改变动作 |
+| 配置 | Task 3 TOML 严格模型 | 四层信任边界只能收紧 | config 12 项及 policy 收紧测试 PASS |
 
 ## 9. 计划自审清单
 
@@ -3416,4 +3502,4 @@ git commit -m "docs: finalize verified course delivery [agent: task-15-worker]" 
 1. **Subagent-Driven（课程要求且推荐）**：使用 `superpowers:subagent-driven-development`，每个 Task 派 fresh subagent，主智能体逐任务做 spec 合规和代码质量两阶段评审。
 2. **Inline Execution**：使用 `superpowers:executing-plans` 分批执行并设置人工检查点；此方案不满足课程“每 task fresh subagent”的默认要求，只能在负责人明确批准偏离且写入 `AGENT_LOG.md` 后采用。
 
-当前状态：PLAN 已由负责人审阅通过；fresh Codex 受限上下文替代审查已完成并触发 Task 1-2 修订；正式实现门禁已打开，选择 Subagent-Driven 方式从 Task 1 开始。
+当前状态：Task 1-14 已有真实提交；Task 15 本地质量门禁、机制演示、关键回归、凭据/敏感产物扫描、wheel 隔离安装和两阶段最终复审已经完成，规格与质量结论均为 `APPROVED` 且无遗留。本提交只关闭 Task 15 本地过程记录；远端 PR、Actions artifact、Pages URL 与课程 ZIP 仍由主控按真实结果关闭，当前文档不预填这些证据。
